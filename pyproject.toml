@@ -1,0 +1,24 @@
+[project]
+name = "InsightBoard"
+version = "0.1.0"
+description = "InsightBoard for data parsing and report generation"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "dash>=2.18.1",
+    "dash-table>=5.0.0",
+    "pandas>=2.2.3",
+    "dash-bootstrap-components>=1.6.0",
+    "gunicorn>=23.0.0",
+    "pyarrow>=17.0.0",
+    "openpyxl>=3.1.5",
+    "adtl",
+    "jsonschema>=4.23.0",
+]
+scripts = { InsightBoard = "InsightBoard:main" }
+
+[tool.uv]
+package = true
+
+[tool.uv.sources]
+adtl = { git = "https://github.com/globaldothealth/adtl" }
