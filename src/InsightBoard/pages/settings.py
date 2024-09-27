@@ -10,8 +10,6 @@ def layout():
     return html.Div(
         [
             html.H1("Settings"),
-            html.Div([
-                "There are no editable settings available at this time."
-            ]),
+            html.Div(["There are no editable settings available at this time."]),
         ]
     )

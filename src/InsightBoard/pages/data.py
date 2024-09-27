@@ -19,7 +19,6 @@ def layout():
             dcc.Store(id="project", storage_type="memory"),  # Store the project name
             html.H3("Select a table to view"),
             dcc.Dropdown(id="table-dropdown", placeholder="Select a table"),
-
             html.Div("", id="datatable-report-length"),
             dash_table.DataTable(
                 id="datatable-table",
@@ -31,7 +30,6 @@ def layout():
                 style_header={"backgroundColor": "lightgray", "fontWeight": "bold"},
                 style_data={"backgroundColor": "white"},
             ),
-
             html.Div(
                 [
                     # Button for downloading CSV
@@ -42,32 +40,37 @@ def layout():
                         style={"margin": "10px"},
                     ),
                     dcc.Download(id="download-table-data"),
-
                     # Dropdown for selecting number of rows per page
-                    html.Div([
-                        html.Label("Records per page:"),
-                        dcc.Dropdown(
-                            id="rows-dropdown",
-                            options=[
-                                {"label": "10", "value": 10},
-                                {"label": "25", "value": 25},
-                                {"label": "50", "value": 50},
-                                {"label": "100", "value": 100},
-                                {"label": "250", "value": 250},
-                                {"label": "500", "value": 500},
-                                {"label": "1000", "value": 1000},
-                            ],
-                            value=25,
-                            clearable=False,
-                            style={"width": "80px", "margin": "10px"},
-                        ),
-                    ],
-                    style={"display": "flex", "justify-content": "center", "align-items": "center"}),
+                    html.Div(
+                        [
+                            html.Label("Records per page:"),
+                            dcc.Dropdown(
+                                id="rows-dropdown",
+                                options=[
+                                    {"label": "10", "value": 10},
+                                    {"label": "25", "value": 25},
+                                    {"label": "50", "value": 50},
+                                    {"label": "100", "value": 100},
+                                    {"label": "250", "value": 250},
+                                    {"label": "500", "value": 500},
+                                    {"label": "1000", "value": 1000},
+                                ],
+                                value=25,
+                                clearable=False,
+                                style={"width": "80px", "margin": "10px"},
+                            ),
+                        ],
+                        style={
+                            "display": "flex",
+                            "justifyContent": "center",
+                            "alignItems": "center",
+                        },
+                    ),
                 ],
                 style={
                     "display": "flex",
-                    "justify-content": "space-between",
-                    "align-items": "center",
+                    "justifyContent": "space-between",
+                    "alignItems": "center",
                     "padding": "10px",
                 },
             ),

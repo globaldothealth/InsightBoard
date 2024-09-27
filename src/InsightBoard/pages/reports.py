@@ -6,7 +6,7 @@ from dash import dcc, html, Input, Output, State, callback
 
 # Register the page
 dash.register_page(__name__, path="/reports")
-projectObject = None
+projectObj = None
 
 
 # Entry point for the page
@@ -25,9 +25,9 @@ def layout():
 @callback(Output("report-dropdown", "options"), Input("project", "data"))
 def update_report_list(project):
     if project:
-        global projectObject
-        projectObject = utils.get_project(project)
-        return projectObject.get_reports_list()
+        global projectObj
+        projectObj = utils.get_project(project)
+        return projectObj.get_reports_list()
     return []
 
 
@@ -43,7 +43,7 @@ def display_selected_report(selected_report, project):
 
     try:
         # Dynamically load the selected report
-        reports_folder = projectObject.get_reports_folder()
+        reports_folder = projectObj.get_reports_folder()
         report_path = os.path.join(reports_folder, f"{selected_report}.py")
         report_module = utils.load_module(selected_report[:-3], report_path)
 
@@ -53,7 +53,7 @@ def display_selected_report(selected_report, project):
 
         # Call the generate_report function from the report module
         return report_module.generate_report(
-            *projectObject.get_datasets(report_module.DATASETS)
+            *projectObj.get_datasets(report_module.DATASETS)
         )
     except Exception as e:
         return html.Div(

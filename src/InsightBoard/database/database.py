@@ -53,7 +53,11 @@ class DatabaseParquet(DatabaseBase):
         super().__init__(DatabaseBackend.PARQUET, data_folder)
 
     def get_tables_list(self):
-        return ['.'.join(f.split('.')[:-1]) for f in os.listdir(self.data_folder) if f.endswith(".parquet")]
+        return [
+            ".".join(f.split(".")[:-1])
+            for f in os.listdir(self.data_folder)
+            if f.endswith(".parquet")
+        ]
 
     def read_table(self, project: str, table_name: str) -> pd.DataFrame:
         file_path = f"{self.data_folder}/{table_name}.parquet"

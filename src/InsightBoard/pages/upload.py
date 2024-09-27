@@ -43,7 +43,8 @@ def layout():
                     "borderStyle": "dashed",
                     "borderRadius": "5px",
                     "textAlign": "center",
-                    "margin": "10px",
+                    "marginTop": "10px",
+                    "marginBottom": "10px",
                 },
                 multiple=False,  # Only allow one file to be uploaded
             ),
@@ -91,8 +92,8 @@ def layout():
                 ],
                 style={
                     "display": "flex",
-                    "align-items": "center",
-                    "justify-content": "flex-end",
+                    "alignItems": "center",
+                    "justifyContent": "flex-end",
                 },
             ),
             # Button for reparsing edited data

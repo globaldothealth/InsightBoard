@@ -9,7 +9,7 @@ dash.register_page(__name__, path="/")
 # Layout for the Home Page with Markdown
 def layout():
     button_style = {
-        "font-size": "25px",
+        "fontSize": "25px",
         "padding": "10px 20px",
     }
     return html.Div(
@@ -26,10 +26,10 @@ def layout():
                 ],
                 style={
                     "display": "flex",
-                    "justify-content": "center",
-                    "align-items": "center",
+                    "justifyContent": "center",
+                    "alignItems": "center",
                     "gap": "20px",
-                    "margin-top": "60px",
+                    "marginTop": "60px",
                 },
             ),
         ]
