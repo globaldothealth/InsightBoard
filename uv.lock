@@ -161,6 +161,12 @@ wheels = [
 ]
 
 [[package]]
+name = "dash-dangerously-set-inner-html"
+version = "0.0.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/56/b1/5102060b9b6836409db84265f4f934475c2707cce87e75f3f8a04493e0dc/dash_dangerously_set_inner_html-0.0.2.tar.gz", hash = "sha256:d7fe990755851fc4d2e22c8f10b7aea055cabf380bbceefba589779b269fea64", size = 4956 }
+
+[[package]]
 name = "dash-html-components"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -277,6 +283,7 @@ dependencies = [
     { name = "adtl" },
     { name = "dash" },
     { name = "dash-bootstrap-components" },
+    { name = "dash-dangerously-set-inner-html" },
     { name = "dash-table" },
     { name = "gunicorn" },
     { name = "jsonschema" },
@@ -290,6 +297,7 @@ requires-dist = [
     { name = "adtl", git = "https://github.com/globaldothealth/adtl" },
     { name = "dash", specifier = ">=2.18.1" },
     { name = "dash-bootstrap-components", specifier = ">=1.6.0" },
+    { name = "dash-dangerously-set-inner-html", specifier = ">=0.0.2" },
     { name = "dash-table", specifier = ">=5.0.0" },
     { name = "gunicorn", specifier = ">=23.0.0" },
     { name = "jsonschema", specifier = ">=4.23.0" },

@@ -87,15 +87,14 @@ def update_page_size(page_size):
 @callback(
     Output("download-table-data", "data"),
     Input("download-table-button", "n_clicks"),
-    State("project", "data"),
     State("table-dropdown", "value"),
 )
-def download_table(n_clicks, selected_project, selected_table):
-    if not selected_project or not selected_table or n_clicks == 0:
+def download_table(n_clicks, selected_table):
+    if not selected_table or n_clicks == 0:
         return None
 
     filename = f"{selected_table}.csv"
-    df = projectObj.database.read_table(selected_project, selected_table)
+    df = projectObj.database.read_table(selected_table)
     return dcc.send_data_frame(df.to_csv, filename, index=False)
 
 
@@ -126,15 +125,14 @@ def update_table_list(selected_project):
     Output("datatable-table", "data"),
     Output("datatable-report-length", "children"),
     Input("table-dropdown", "value"),
-    State("project", "data"),
 )
-def load_selected_table(selected_table, selected_project):
-    if not selected_table or not selected_project:
+def load_selected_table(selected_table):
+    if not selected_table:
         return [], [], ""
 
     # Load the table into a Pandas DataFrame
     try:
-        df = projectObj.database.read_table(selected_project, selected_table)
+        df = projectObj.database.read_table(selected_table)
     except Exception as e:
         return [], [], f"Error loading table: {str(e)}"
 

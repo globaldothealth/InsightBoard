@@ -13,8 +13,10 @@ def get_project(name):
     return Project(name)
 
 
-def load_module(module_name, module_path):
+def load_module(module_name: str, module_path: str | Path):
     # Dynamically load the selected report
+    if isinstance(module_path, Path):
+        module_path = str(module_path)
     spec = importlib.util.spec_from_file_location(module_name, module_path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
