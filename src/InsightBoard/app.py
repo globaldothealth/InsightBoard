@@ -1,14 +1,19 @@
 import dash
-from dash import dcc, Input, Output
+from dash import dcc, Input, Output, html
 import dash_bootstrap_components as dbc
+
 from .utils import get_projects_list
 
 projects = get_projects_list()
+cogwheel = html.I(className="fas fa-cog"),
 
 app = dash.Dash(
     __name__,
     use_pages=True,
-    external_stylesheets=[dbc.themes.MINTY],
+    external_stylesheets=[
+        dbc.themes.MINTY,
+        'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css',
+    ],
     suppress_callback_exceptions=True,
 )
 server = app.server  # Expose the server
@@ -16,13 +21,18 @@ server = app.server  # Expose the server
 
 # Project Dropdown list
 def ProjectDropDown():
-    return dcc.Dropdown(
-        id="project-dropdown",
-        options=[{"label": project, "value": project} for project in projects],
-        value=projects[0],  # Default
-        clearable=False,
-        style={"width": "200px", "color": "black"},
-    )
+    return html.Div([
+        dcc.Dropdown(
+            id="project-dropdown",
+            options=[{"label": project, "value": project} for project in projects],
+            value=projects[0] if projects else [],  # Default
+            clearable=False,
+            style={"width": "200px", "color": "black"},
+            placeholder="No project selected",
+        ),
+        # add settings cogwheel
+        dbc.NavLink(cogwheel, href="/settings", style={"color": "#c2e3da", "margin-left": "10px"}),
+    ], style={"display": "flex", "align-items": "center"})
 
 
 @app.callback(Output("project", "data"), Input("project-dropdown", "value"))

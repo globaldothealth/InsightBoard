@@ -70,24 +70,31 @@ def layout():
                 page_size=25,
                 style_table={"min-height": "300px", "overflowY": "auto"},
             ),
-            html.Div([
-                html.Label("Records per page:"),
-                dcc.Dropdown(
-                    id="rows-dropdown",
-                    options=[
-                        {"label": "10", "value": 10},
-                        {"label": "25", "value": 25},
-                        {"label": "50", "value": 50},
-                        {"label": "100", "value": 100},
-                        {"label": "250", "value": 250},
-                        {"label": "500", "value": 500},
-                        {"label": "1000", "value": 1000},
-                    ],
-                    value=25,
-                    clearable=False,
-                    style={"width": "60px", "margin": "10px"},
-                ),
-            ], style={"display": "flex", "align-items": "center", "justify-content": "flex-end"}),
+            html.Div(
+                [
+                    html.Label("Records per page:"),
+                    dcc.Dropdown(
+                        id="rows-dropdown",
+                        options=[
+                            {"label": "10", "value": 10},
+                            {"label": "25", "value": 25},
+                            {"label": "50", "value": 50},
+                            {"label": "100", "value": 100},
+                            {"label": "250", "value": 250},
+                            {"label": "500", "value": 500},
+                            {"label": "1000", "value": 1000},
+                        ],
+                        value=25,
+                        clearable=False,
+                        style={"width": "80px", "margin": "10px"},
+                    ),
+                ],
+                style={
+                    "display": "flex",
+                    "align-items": "center",
+                    "justify-content": "flex-end",
+                },
+            ),
             # Button for reparsing edited data
             dbc.Button("Update Records", id="update-button", n_clicks=0),
             # Buttons for downloading CSV and committing changes
@@ -140,10 +147,7 @@ def update_filename(filename):
 
 
 # Callback to update the page size of the DataTable based on dropdown selection
-@callback(
-    Output('editable-table', 'page_size'),
-    Input('rows-dropdown', 'value')
-)
+@callback(Output("editable-table", "page_size"), Input("rows-dropdown", "value"))
 def update_page_size(page_size):
     return page_size
 
@@ -256,7 +260,7 @@ def validate_tables(parsed_dbs_dict, parsed_dbs, selected_table, project):
         schema_file_strict = None
 
     # Validate the data against the schema
-    parsed_errors = utils.validate_against_jsonscheme(df, schema_file_relaxed)
+    parsed_errors = utils.validate_against_jsonschema(df, schema_file_relaxed)
 
     # If a strict schema exists, validate against that too
     parsed_warns = []
@@ -264,7 +268,7 @@ def validate_tables(parsed_dbs_dict, parsed_dbs, selected_table, project):
         schema_file_strict = (
             Path(projectObj.get_schemas_folder()) / f"{table_name}.schema.json"
         )
-        parsed_warns = utils.validate_against_jsonscheme(df, schema_file_strict)
+        parsed_warns = utils.validate_against_jsonschema(df, schema_file_strict)
 
     # Construct validation messages
     msg_errors = [
@@ -302,7 +306,17 @@ def validate_tables(parsed_dbs_dict, parsed_dbs, selected_table, project):
     State("imported-tables-dropdown", "options"),
     State("imported-tables-dropdown", "value"),
 )
-def parse_file(parse_n_clicks, update_n_clicks, project, contents, filename, selected_parser, edited_data_store, tables_list, selected_table):
+def parse_file(
+    parse_n_clicks,
+    update_n_clicks,
+    project,
+    contents,
+    filename,
+    selected_parser,
+    edited_data_store,
+    tables_list,
+    selected_table,
+):
     if not parse_n_clicks and not update_n_clicks:
         return (
             "No parse requested.",
@@ -441,17 +455,6 @@ def update_table_style_and_validate(data, original_data, tables, selected_table)
     return style_data_conditional, tooltip_data
 
 
-@callback(
-    Input("save-parsing-log", "n_clicks"),
-    State("editable-table", "data"),
-)
-def save_parsing_log(n_clicks, data):
-    if n_clicks:
-        with open("parsing_log.txt", "w") as f:
-            for row in data:
-                f.write(str(row) + "\n")
-
-
 # Callback for downloading data as CSV
 @callback(
     Output("download-csv", "data"),
@@ -464,18 +467,6 @@ def download_csv(n_clicks, data):
         df = pd.DataFrame(data)
         df.drop(columns=["Row"], inplace=True)
         return dcc.send_data_frame(df.to_csv, "modified_data.csv", index=False)
-
-
-# Callback for downloading log files
-@callback(
-    Output("download-log", "data"),
-    Input("save-parsing-log", "n_clicks"),
-    Input("output-container", "children"),
-    prevent_initial_call=True,
-)
-def download_log(n_clicks, children):
-    if n_clicks:
-        return dict(content=children[2:], filename="parsing_log.txt")
 
 
 @callback(

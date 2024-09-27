@@ -1,8 +1,9 @@
 import dash
+import dash_bootstrap_components as dbc
+
 from dash import dcc, html, dash_table
 from dash import Input, Output, State, callback
-import pandas as pd
-import os
+
 import InsightBoard.utils as utils
 
 # Register the page
@@ -18,75 +19,125 @@ def layout():
             dcc.Store(id="project", storage_type="memory"),  # Store the project name
             html.H3("Select a table to view"),
             dcc.Dropdown(id="table-dropdown", placeholder="Select a table"),
+
+            html.Div("", id="datatable-report-length"),
+            dash_table.DataTable(
+                id="datatable-table",
+                columns=[],
+                data=[],
+                page_size=10,
+                style_table={"overflowY": "auto"},
+                style_cell={"textAlign": "left"},
+                style_header={"backgroundColor": "lightgray", "fontWeight": "bold"},
+                style_data={"backgroundColor": "white"},
+            ),
+
             html.Div(
-                id="datatable-container"
-            ),  # Container for dynamically generated DataTable
+                [
+                    # Button for downloading CSV
+                    dbc.Button(
+                        "Download table as CSV",
+                        id="download-table-button",
+                        n_clicks=0,
+                        style={"margin": "10px"},
+                    ),
+                    dcc.Download(id="download-table-data"),
+
+                    # Dropdown for selecting number of rows per page
+                    html.Div([
+                        html.Label("Records per page:"),
+                        dcc.Dropdown(
+                            id="rows-dropdown",
+                            options=[
+                                {"label": "10", "value": 10},
+                                {"label": "25", "value": 25},
+                                {"label": "50", "value": 50},
+                                {"label": "100", "value": 100},
+                                {"label": "250", "value": 250},
+                                {"label": "500", "value": 500},
+                                {"label": "1000", "value": 1000},
+                            ],
+                            value=25,
+                            clearable=False,
+                            style={"width": "80px", "margin": "10px"},
+                        ),
+                    ],
+                    style={"display": "flex", "justify-content": "center", "align-items": "center"}),
+                ],
+                style={
+                    "display": "flex",
+                    "justify-content": "space-between",
+                    "align-items": "center",
+                    "padding": "10px",
+                },
+            ),
         ]
     )
 
 
+# Callback to update the page size of the DataTable based on dropdown selection
+@callback(Output("datatable-table", "page_size"), Input("rows-dropdown", "value"))
+def update_page_size(page_size):
+    return page_size
+
+
+@callback(
+    Output("download-table-data", "data"),
+    Input("download-table-button", "n_clicks"),
+    State("project", "data"),
+    State("table-dropdown", "value"),
+)
+def download_table(n_clicks, selected_project, selected_table):
+    if not selected_project or not selected_table or n_clicks == 0:
+        return None
+
+    filename = f"{selected_table}.csv"
+    df = projectObj.database.read_table(selected_project, selected_table)
+    return dcc.send_data_frame(df.to_csv, filename, index=False)
+
+
 # Callback to load the available database tables and populate the dropdown
 @callback(Output("table-dropdown", "options"), Input("project", "data"))
-def update_parquet_file_list(selected_project):
+def update_table_list(selected_project):
     if not selected_project:
         return []
 
-    # Get the data folder for the selected project
+    # Get the selected project
     global projectObj
     projectObj = utils.get_project(selected_project)
-    data_folder = projectObj.get_data_folder()
 
-    # List all .parquet files in the data folder
-    try:
-        parquet_files = [f for f in os.listdir(data_folder) if f.endswith(".parquet")]
-        if not parquet_files:
-            return [{"label": "No tables files found", "value": ""}]
-        return [{"label": f.split(".")[:-1], "value": f} for f in parquet_files]
-    except FileNotFoundError:
-        return [
-            {
-                "label": f"Error: Data folder for {selected_project} not found",
-                "value": "",
-            }
-        ]
-    except Exception as e:
-        return [{"label": f"Error: {str(e)}", "value": ""}]
+    # List tables in the project
+    tables = projectObj.database.get_tables_list()
+    return [
+        {
+            "label": table,
+            "value": table,
+        }
+        for table in tables
+    ]
 
 
 # Callback to load the selected table and display it as a DataTable
 @callback(
-    Output("datatable-container", "children"),
+    Output("datatable-table", "columns"),
+    Output("datatable-table", "data"),
+    Output("datatable-report-length", "children"),
     Input("table-dropdown", "value"),
     State("project", "data"),
 )
-def load_selected_parquet_file(selected_file, selected_project):
-    if not selected_file or not selected_project:
-        return "Please select a table."
-
-    # Get the data folder for the selected project
-    data_folder = projectObj.get_data_folder()
-
-    # Define the path to the selected table
-    parquet_file_path = os.path.join(data_folder, selected_file)
+def load_selected_table(selected_table, selected_project):
+    if not selected_table or not selected_project:
+        return [], [], ""
 
     # Load the table into a Pandas DataFrame
     try:
-        df = pd.read_parquet(parquet_file_path)
-    except FileNotFoundError:
-        return html.Div(f"Error: File not found at {parquet_file_path}.")
+        df = projectObj.database.read_table(selected_project, selected_table)
     except Exception as e:
-        return html.Div(f"Error loading table: {str(e)}")
+        return [], [], f"Error loading table: {str(e)}"
 
     # Dynamically create the DataTable
-    return dash_table.DataTable(
-        id="editable-table",  # The dynamically generated table's ID
-        columns=[
-            {"name": col, "id": col} for col in df.columns
-        ],  # Define columns based on DataFrame
-        data=df.to_dict("records"),  # Convert DataFrame rows to dictionary format
-        page_size=10,
-        style_table={"height": "400px", "overflowY": "auto"},
-        style_cell={"textAlign": "left"},
-        style_header={"backgroundColor": "lightgray", "fontWeight": "bold"},
-        style_data={"backgroundColor": "white"},
+    return (
+        [{"name": col, "id": col} for col in df.columns],
+        df.to_dict("records"),
+        f"Number of records: {len(df)}",
     )
