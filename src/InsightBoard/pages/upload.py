@@ -260,8 +260,11 @@ def validate_tables(parsed_dbs_dict, parsed_dbs, selected_table, project):
         schema_file_relaxed = schema_file
         schema_file_strict = None
 
-    # Validate the data against the schema
-    parsed_errors = utils.validate_against_jsonschema(df, schema_file_relaxed)
+    # Validate the data against the schema (removing empty rows)
+    parsed_errors = [
+        x for x in utils.validate_against_jsonschema(df, schema_file_relaxed)
+        if x is not None
+    ]
 
     # If a strict schema exists, validate against that too
     parsed_warns = []
@@ -269,9 +272,14 @@ def validate_tables(parsed_dbs_dict, parsed_dbs, selected_table, project):
         schema_file_strict = (
             Path(projectObj.get_schemas_folder()) / f"{table_name}.schema.json"
         )
-        parsed_warns = utils.validate_against_jsonschema(df, schema_file_strict)
+        parsed_warns = [
+            x for x in utils.validate_against_jsonschema(df, schema_file_strict)
+            if x is not None
+        ]
 
     # Construct validation messages
+    if not any(parsed_errors) and not any(parsed_warns):
+        return html.P("Validation passed successfully.")
     msg_errors = [
         html.H3("Validation errors:", style={"color": "red"}),
         html.P(
