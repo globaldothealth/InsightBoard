@@ -93,6 +93,3 @@ class Project:
             )
         datasets = [d for d in project_datasets if d["label"] in datasets]
         return [pd.read_parquet(f"{d['filename']}") for d in datasets]
-
-    def commit_tables_dict(self, table_names, datasets):
-        self.database.commit_tables_dict(self.name, table_names, datasets)

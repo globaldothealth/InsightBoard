@@ -36,6 +36,7 @@ def update_report_list(project):
     Output("report-content", "children"),
     Input("report-dropdown", "value"),
     State("project", "data"),
+    _allow_dynamic_callbacks=True,  # python report modules are loaded dynamically
 )
 def display_selected_report(selected_report, project):
     if not selected_report:

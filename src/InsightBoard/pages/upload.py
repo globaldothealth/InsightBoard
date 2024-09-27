@@ -262,7 +262,8 @@ def validate_tables(parsed_dbs_dict, parsed_dbs, selected_table, project):
 
     # Validate the data against the schema (removing empty rows)
     parsed_errors = [
-        x for x in utils.validate_against_jsonschema(df, schema_file_relaxed)
+        x
+        for x in utils.validate_against_jsonschema(df, schema_file_relaxed)
         if x is not None
     ]
 
@@ -273,7 +274,8 @@ def validate_tables(parsed_dbs_dict, parsed_dbs, selected_table, project):
             Path(projectObj.get_schemas_folder()) / f"{table_name}.schema.json"
         )
         parsed_warns = [
-            x for x in utils.validate_against_jsonschema(df, schema_file_strict)
+            x
+            for x in utils.validate_against_jsonschema(df, schema_file_strict)
             if x is not None
         ]
 
@@ -505,7 +507,7 @@ def display_confirm_dialog(n_clicks, table_names):
 def commit_to_database(submit_n_clicks, project, table_names, datasets):
     if submit_n_clicks and project and table_names and datasets:
         try:
-            projectObj.commit_tables_dict(table_names, datasets)
+            projectObj.database.commit_tables_dict(table_names, datasets)
             return "Data committed to database.", True
         except Exception as e:
             return f"Error committing data to file: {str(e)}", False
