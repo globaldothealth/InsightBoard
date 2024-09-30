@@ -75,6 +75,8 @@ class DatabaseParquet(DatabaseBase):
         super().__init__(DatabaseBackend.PARQUET, data_folder)
 
     def get_tables_list(self):
+        if not os.path.exists(self.data_folder):
+            return []
         return [
             ".".join(f.split(".")[:-1])
             for f in os.listdir(self.data_folder)
@@ -92,7 +94,8 @@ class DatabaseParquet(DatabaseBase):
     def write_table_parquet(self, table_name: str, df: pd.DataFrame):
         """Plain Parquet writer, no version history"""
         # Check if the Parquet file exists, and append the data
-        file_path = f"{self.data_folder}/{table_name}.parquet"
+        file_path = Path(self.data_folder) / f"{table_name}.parquet"
+        file_path.parent.mkdir(parents=True, exist_ok=True)
         try:
             current_df = pq.read_table(file_path).to_pandas()
             primary_key = self.get_primary_key(table_name)

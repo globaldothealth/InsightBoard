@@ -69,11 +69,14 @@ class Project:
         return [{"label": f.stem, "value": f.stem} for f in report_files]
 
     def get_project_datasets(self):
-        return [
-            {"filename": f, "label": f.with_suffix("").name}
-            for f in Path(self.get_data_folder()).iterdir()
-            if f.is_file() and f.suffix == ".parquet"
-        ]
+        data_folder = Path(self.get_data_folder())
+        if data_folder.exists():
+            return [
+                {"filename": f, "label": f.with_suffix("").name}
+                for f in data_folder.iterdir()
+                if f.is_file() and f.suffix == ".parquet"
+            ]
+        return []
 
     def get_project_parsers(self):
         return [
@@ -87,7 +90,7 @@ class Project:
         if not all(d in [d["label"] for d in project_datasets] for d in datasets):
             raise Exception(
                 "Not all requested datasets are available "
-                f"in the project '{self.project}'.\n"
+                f"in the project '{self.name}'.\n"
                 f"Requested datasets: {datasets}\n"
                 f"Available datasets: {[d['label'] for d in project_datasets]}"
             )
