@@ -16,8 +16,22 @@ def layout():
             html.H3("Select a Report"),
             dcc.Store(id="project", storage_type="memory"),  # Store the project name
             dcc.Dropdown(id="report-dropdown", placeholder="Select a report"),
-            html.Div(id="report-content"),
-        ]
+            dcc.Loading(
+                type="default",
+                children=[
+                    html.Div(
+                        id="report-content", style={"width": "100%", "height": "100%"}
+                    ),
+                ],
+                style={
+                    "position": "absolute",
+                    "top": 0,
+                    "z-index": 9999,
+                },
+                color="var(--bs-primary)",
+            ),
+        ],
+        style={"width": "100%", "height": "100%"},
     )
 
 

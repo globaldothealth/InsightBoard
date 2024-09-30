@@ -6,7 +6,10 @@ from pathlib import Path
 from jsonschema import Draft7Validator
 
 from .project import Project
-from .project.project import get_projects_list  # expose downstream # noqa: F401
+from .project.project import (
+    get_projects_list,
+    get_custom_assets_folder,
+)  # expose downstream # noqa: F401
 
 
 def get_project(name):

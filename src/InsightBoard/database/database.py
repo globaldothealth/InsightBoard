@@ -74,6 +74,7 @@ class DatabaseParquet(DatabaseBase):
     def __init__(self, data_folder: str = ""):
         super().__init__(DatabaseBackend.PARQUET, data_folder)
 
+    # override
     def get_tables_list(self):
         if not os.path.exists(self.data_folder):
             return []
@@ -83,13 +84,17 @@ class DatabaseParquet(DatabaseBase):
             if f.endswith(".parquet")
         ]
 
+    # override
     def read_table(self, table_name: str) -> pd.DataFrame:
         file_path = f"{self.data_folder}/{table_name}.parquet"
         table = pq.read_table(file_path)
         return table.to_pandas()
 
+    # override
     def commit_table(self, table_name: str, df: pd.DataFrame):
         self.write_table_parquet(table_name, df)
+
+    # Utility functions
 
     def write_table_parquet(self, table_name: str, df: pd.DataFrame):
         """Plain Parquet writer, no version history"""

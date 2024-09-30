@@ -22,11 +22,14 @@ def layout():
             dcc.Store(id="edited-data-store"),  # Store edited DataFrame(s)
             html.H1("Upload data"),
             # Parser dropdown list (context-dependent on dataset)
-            dcc.Dropdown(
-                id="parser-dropdown",
-                options=[],
-                placeholder="Select a parser",
-                style={"width": "50%"},
+            dbc.Col(
+                dcc.Dropdown(
+                    id="parser-dropdown",
+                    options=[],
+                    placeholder="Select a parser",
+                    style={"width": "100%"},
+                ),
+                width=6,
             ),
             # Upload drop-space
             dcc.Upload(
@@ -69,7 +72,12 @@ def layout():
                 style_data_conditional=[],
                 tooltip_data=[],
                 page_size=25,
-                style_table={"min-height": "300px", "overflowY": "auto"},
+                style_table={
+                    "minWidth": "100%",  # Format fix after freezing first column
+                    "min-height": "300px",
+                    "overflowY": "auto",
+                },
+                fixed_columns={"headers": True, "data": 1},  # Freeze first column
             ),
             html.Div(
                 [
@@ -97,10 +105,10 @@ def layout():
                 },
             ),
             # Button for reparsing edited data
-            dbc.Button("Update Records", id="update-button", n_clicks=0),
+            dbc.Button("Revalidate", id="update-button", n_clicks=0),
             # Buttons for downloading CSV and committing changes
             dbc.Button(
-                "Download parsed data as CSV",
+                "Download as CSV",
                 id="download-button",
                 n_clicks=0,
                 style={"margin": "10px"},
@@ -118,7 +126,8 @@ def layout():
             dcc.ConfirmDialog(id="confirm-commit-dialog", message=""),
             html.Hr(),
             html.Div(id="output-container"),
-        ]
+        ],
+        style={"width": "100%"},
     )
 
 
@@ -262,9 +271,7 @@ def validate_tables(parsed_dbs_dict, parsed_dbs, selected_table, project):
 
     # Validate the data against the schema (removing empty rows)
     parsed_errors = [
-        x
-        for x in utils.validate_against_jsonschema(df, schema_file_relaxed)
-        if x is not None
+        x for x in utils.validate_against_jsonschema(df, schema_file_relaxed) if x
     ]
 
     # If a strict schema exists, validate against that too
@@ -274,9 +281,7 @@ def validate_tables(parsed_dbs_dict, parsed_dbs, selected_table, project):
             Path(projectObj.get_schemas_folder()) / f"{table_name}.schema.json"
         )
         parsed_warns = [
-            x
-            for x in utils.validate_against_jsonschema(df, schema_file_strict)
-            if x is not None
+            x for x in utils.validate_against_jsonschema(df, schema_file_strict) if x
         ]
 
     # Construct validation messages
