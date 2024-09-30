@@ -1,4 +1,3 @@
-import os
 import pandas as pd
 
 from pathlib import Path
@@ -37,6 +36,15 @@ def get_projects_list():
 
     """
     return [f.name for f in sorted(Path(get_projects_folder()).iterdir()) if f.is_dir()]
+
+
+def get_custom_assets_folder() -> str | None:
+    assets_path = Path(get_projects_folder()) / ".." / "style"
+    if assets_path.exists():
+        # Return absolute path to the style sheets
+        return str(assets_path)
+    else:
+        return None
 
 
 class Project:

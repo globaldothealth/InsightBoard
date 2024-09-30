@@ -37,7 +37,6 @@ def layout():
                         "Download table as CSV",
                         id="download-table-button",
                         n_clicks=0,
-                        style={"margin": "10px"},
                     ),
                     dcc.Download(id="download-table-data"),
                     # Dropdown for selecting number of rows per page
@@ -71,7 +70,6 @@ def layout():
                     "display": "flex",
                     "justifyContent": "space-between",
                     "alignItems": "center",
-                    "padding": "10px",
                 },
             ),
         ]
