@@ -5,7 +5,7 @@ import pandas as pd
 from tempfile import NamedTemporaryFile
 
 
-def adtl(df: pd.DataFrame, specification: str) -> pd.DataFrame:
+def adtl(df: pd.DataFrame, specification: str, parquet=False) -> pd.DataFrame:
     # Write pandas dataframe to temporary csv file
     input_csv = NamedTemporaryFile(delete=False)
     df.to_csv(input_csv.name, index=False)
@@ -16,7 +16,10 @@ def adtl(df: pd.DataFrame, specification: str) -> pd.DataFrame:
     tables = spec.get("adtl", {}).get("tables", {}).keys()
 
     # Use ADTL to parse the dataset
-    result = subprocess.run(["adtl", specification, input_csv.name])
+    if parquet:
+        result = subprocess.run(["adtl", specification, input_csv.name, "--parquet"])
+    else:
+        result = subprocess.run(["adtl", specification, input_csv.name])
 
     # Remove temporary csv file
     os.unlink(input_csv.name)

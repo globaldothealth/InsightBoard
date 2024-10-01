@@ -9,7 +9,7 @@ resolution-markers = [
 [[package]]
 name = "adtl"
 version = "0.5.0"
-source = { git = "https://github.com/globaldothealth/adtl#ee380c18cce78d1a844d3563da55e31bbef03e4c" }
+source = { git = "https://github.com/globaldothealth/adtl#2d70bfac4500f5ab1283f2b3d63ccb5c89bf0c26" }
 dependencies = [
     { name = "fastjsonschema" },
     { name = "more-itertools" },
@@ -18,6 +18,7 @@ dependencies = [
     { name = "requests" },
     { name = "tomli" },
     { name = "tqdm" },
+    { name = "polars" },
 ]
 
 [[package]]
