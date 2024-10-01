@@ -6,10 +6,10 @@ from pathlib import Path
 from jsonschema import Draft7Validator
 
 from .project import Project
-from .project.project import (
-    get_projects_list,
-    get_custom_assets_folder,
-)  # expose downstream # noqa: F401
+from .project.project import (  # expose downstream # noqa: F401
+    get_projects_list,  # expose downstream # noqa: F401
+    get_custom_assets_folder,  # expose downstream # noqa: F401
+)
 
 
 def get_project(name):
@@ -45,14 +45,4 @@ def validate_against_jsonschema(df: pd.DataFrame, schema):
 
 def validate_row_jsonschema(row_number, row, schema):
     validator = Draft7Validator(schema)
-    error_list = list(validator.iter_errors(row))
-    if error_list:
-        return f"Row {row_number + 1} - " + (
-            "; ".join(
-                [
-                    f"'{'.'.join(map(str, error.path))}': {error.message}"
-                    for error in error_list
-                ]
-            )
-        )
-    return []
+    return list(validator.iter_errors(row))
