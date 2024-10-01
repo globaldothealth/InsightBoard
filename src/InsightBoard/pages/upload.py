@@ -3,6 +3,7 @@ import dash
 import base64
 import pandas as pd
 import dash_bootstrap_components as dbc
+import logging
 
 from pathlib import Path
 from dash import dcc, html, dash_table, Input, Output, State, callback
@@ -63,21 +64,35 @@ def layout():
                 style={"float": "right", "width": "50%"},
             ),
             # DataTable for editing
-            dash_table.DataTable(
-                id="editable-table",
-                columns=[],
-                data=[],
-                editable=True,
-                row_deletable=True,
-                style_data_conditional=[],
-                tooltip_data=[],
-                page_size=25,
-                style_table={
-                    "minWidth": "100%",  # Format fix after freezing first column
-                    "min-height": "300px",
-                    "overflowY": "auto",
+            dcc.Loading(
+                type="default",
+                children=[
+                    dash_table.DataTable(
+                        id="editable-table",
+                        columns=[],
+                        data=[],
+                        editable=True,
+                        row_deletable=True,
+                        style_data_conditional=[],
+                        tooltip_data=[],
+                        page_size=25,
+                        style_table={
+                            "minWidth": "100%",  # Format fix for freezing first column
+                            "min-height": "300px",
+                            "overflowY": "auto",
+                        },
+                        fixed_columns={
+                            "headers": True,
+                            "data": 1,
+                        },  # Freeze first column
+                    ),
+                ],
+                style={
+                    "position": "absolute",
+                    "top": 0,
+                    "z-index": 9999,
                 },
-                fixed_columns={"headers": True, "data": 1},  # Freeze first column
+                color="var(--bs-primary)",
             ),
             html.Div(
                 [
@@ -405,10 +420,17 @@ def parse_data(project, contents, filename, selected_parser):
         )
 
 
-def highlight_and_tooltip_changes(original_df, data):
+def highlight_and_tooltip_changes(original_data, data, page_current, page_size):
     """Compare the original and edited data, highlight changes, and show tooltips."""
+    page_current = page_current or 0
+
+    paginate = True
+    start_idx = page_current * page_size if paginate else 0
+    end_idx = (page_current + 1) * page_size if paginate else len(data)
+
     style_data_conditional = []
-    tooltip_data = []
+    tooltip_data = [{} for _ in range(start_idx)]
+    data_cols = [k for k in data[0].keys() if k != "Row"]
 
     # Iterate over each row in the modified data
     try:
@@ -420,12 +442,12 @@ def highlight_and_tooltip_changes(original_df, data):
                 "color": "#A0A0A0",
             }
         )
-        for i, row in enumerate(data):
+        for i, row in enumerate(data[start_idx:end_idx]):
             row_tooltip = {}  # Store tooltips for the row
-            for column in original_df.columns:
-                original_value = original_df.iloc[i][column]
-                modified_value = row[column]
-                # If the cell value differs from the original, highlight it and add tooltip
+            for column in data_cols:
+                original_value = original_data[i + start_idx].get(column, None)
+                modified_value = row.get(column, None)
+                # If the cell values differ, highlight and add a tooltip
                 if str(modified_value) != str(original_value):
                     style_data_conditional.append(
                         {
@@ -437,11 +459,16 @@ def highlight_and_tooltip_changes(original_df, data):
                     # Show original content as a tooltip
                     row_tooltip[column] = {
                         "value": f'Original: "{original_value}"',
-                        "type": "markdown",
+                        "type": "text",
                     }
             tooltip_data.append(row_tooltip)
-    except Exception:
+
+        print(f"style_data_conditional: {style_data_conditional}")
+        print(f"tooltip_data: {tooltip_data}")
+
+    except Exception as e:
         # Callback can sometimes be called on stale data causing key errors
+        logging.error(f"Error in highlight_and_tooltip_changes: {str(e)}")
         return [], []
 
     return style_data_conditional, tooltip_data
@@ -452,20 +479,24 @@ def highlight_and_tooltip_changes(original_df, data):
     Output("editable-table", "style_data_conditional"),
     Output("editable-table", "tooltip_data"),
     Input("editable-table", "data"),
+    Input("editable-table", "page_current"),
+    Input("editable-table", "page_size"),
     State("parsed-data-store", "data"),
     State("imported-tables-dropdown", "options"),
     State("imported-tables-dropdown", "value"),
 )
-def update_table_style_and_validate(data, original_data, tables, selected_table):
+def update_table_style_and_validate(
+    data, page_current, page_size, original_data, tables, selected_table
+):
     if not data:
         return [], []
 
     # Convert original data from dict to DataFrame
-    original_df = pd.DataFrame(original_data[tables.index(selected_table)])
+    original_df = original_data[tables.index(selected_table)]
 
     # Highlight changes and create tooltips showing original data
     style_data_conditional, tooltip_data = highlight_and_tooltip_changes(
-        original_df, data
+        original_df, data, page_current, page_size
     )
 
     return style_data_conditional, tooltip_data

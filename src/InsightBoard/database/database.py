@@ -39,7 +39,7 @@ class DatabaseBase(ABC):
 
     def get_primary_key(self, table_name: str):
         schema_filename = (
-            Path(self.data_folder) / ".." / "schemas" / f"{table_name}.schema.json"
+            Path(self.data_folder).parent / "schemas" / f"{table_name}.schema.json"
         )
         try:
             with open(schema_filename, "r") as f:
