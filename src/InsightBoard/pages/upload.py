@@ -21,6 +21,7 @@ def layout():
             dcc.Store(id="project"),  # Store the project name
             dcc.Store(id="parsed-data-store"),  # Store parsed DataFrame(s)
             dcc.Store(id="edited-data-store"),  # Store edited DataFrame(s)
+            dcc.Store(id="validation-errors"),  # Store validation errors
             html.H1("Upload data"),
             # Parser dropdown list (context-dependent on dataset)
             dbc.Col(
@@ -204,6 +205,18 @@ def update_table(options, selected_table, edited_datasets, parsed_datasets):
     return columns, data
 
 
+def clean_value(x):
+    if x == "":
+        return None
+    try:
+        if "." in x:
+            return float(x)
+        else:
+            return int(x)
+    except Exception:
+        return x
+
+
 @callback(
     Output("edited-data-store", "data"),
     Input("parsed-data-store", "data"),
@@ -224,6 +237,10 @@ def update_edited_data(
     # Remove the 'Row' column before saving
     for row in edited_table_data:
         row.pop("Row", None)
+    # Clean data
+    edited_table_data = [
+        {k: clean_value(v) for k, v in row.items()} for row in edited_table_data
+    ]
     new_edited_data_store[tables.index(selected_table)] = edited_table_data
     return new_edited_data_store
 
@@ -243,8 +260,29 @@ def text_to_html(text: str) -> html.Div:
     )
 
 
+def errorlist_to_sentence(errorlist: []) -> str:
+    return "; ".join(
+        [
+            f"'{'.'.join(map(str, error.path))}': {error.message}"
+            for error in errorlist
+            if error
+        ]
+    )
+
+
+def errorlist_to_sentence_dict(errorlist: []) -> str:
+    return "; ".join(
+        [
+            f"'{'.'.join(map(str, error['path']))}': {error['message']}"
+            for error in errorlist
+            if error
+        ]
+    )
+
+
 @callback(
     Output("output-container", "children"),
+    Output("validation-errors", "data"),
     Input("parsed-data-store", "data"),
     Input("imported-tables-dropdown", "options"),
     Input("imported-tables-dropdown", "value"),
@@ -252,7 +290,7 @@ def text_to_html(text: str) -> html.Div:
 )
 def validate_tables(parsed_dbs_dict, parsed_dbs, selected_table, project):
     if not parsed_dbs_dict:
-        return "Validation checks not yet run."
+        return "Validation checks not yet run.", []
 
     selected_table_index = parsed_dbs.index(selected_table)
     table_name = parsed_dbs[selected_table_index]
@@ -269,7 +307,8 @@ def validate_tables(parsed_dbs_dict, parsed_dbs, selected_table, project):
                     f"Schema file '{schema_file}' not found - cannot validate table.",
                     style={"color": "red"},
                 ),
-            ]
+            ],
+            [],
         )
 
     # Check whether a relaxed schema file exists
@@ -284,9 +323,19 @@ def validate_tables(parsed_dbs_dict, parsed_dbs, selected_table, project):
         schema_file_relaxed = schema_file
         schema_file_strict = None
 
-    # Validate the data against the schema (removing empty rows)
+    # Validate the data against the schema
+    errors = utils.validate_against_jsonschema(df, schema_file_relaxed)
     parsed_errors = [
-        x for x in utils.validate_against_jsonschema(df, schema_file_relaxed) if x
+        f"Row {idx + 1} - {errorlist_to_sentence(x)}"
+        for idx, x in enumerate(errors)
+        if x
+    ]
+    errors = [
+        [
+            {"path": str(x.path[0] if x.path else ""), "message": str(x.message)}
+            for x in error
+        ]
+        for error in errors
     ]
 
     # If a strict schema exists, validate against that too
@@ -295,13 +344,16 @@ def validate_tables(parsed_dbs_dict, parsed_dbs, selected_table, project):
         schema_file_strict = (
             Path(projectObj.get_schemas_folder()) / f"{table_name}.schema.json"
         )
+        warns = utils.validate_against_jsonschema(df, schema_file_strict)
         parsed_warns = [
-            x for x in utils.validate_against_jsonschema(df, schema_file_strict) if x
+            f"Row {idx + 1} - {errorlist_to_sentence(x)}"
+            for idx, x in enumerate(warns)
+            if x
         ]
 
     # Construct validation messages
     if not any(parsed_errors) and not any(parsed_warns):
-        return html.P("Validation passed successfully.")
+        return html.P("Validation passed successfully."), []
     msg_errors = [
         html.H3("Validation errors:", style={"color": "red"}),
         html.P(
@@ -318,7 +370,7 @@ def validate_tables(parsed_dbs_dict, parsed_dbs, selected_table, project):
             ),
         ]
 
-    return html.Div([*msg_errors, *msg_warns])
+    return html.Div([*msg_errors, *msg_warns]), errors
 
 
 # Callback to parse the file when "Parse" button is pressed
@@ -420,7 +472,9 @@ def parse_data(project, contents, filename, selected_parser):
         )
 
 
-def highlight_and_tooltip_changes(original_data, data, page_current, page_size):
+def highlight_and_tooltip_changes(
+    original_data, data, page_current, page_size, validation_errors
+):
     """Compare the original and edited data, highlight changes, and show tooltips."""
     page_current = page_current or 0
 
@@ -428,43 +482,69 @@ def highlight_and_tooltip_changes(original_data, data, page_current, page_size):
     start_idx = page_current * page_size if paginate else 0
     end_idx = (page_current + 1) * page_size if paginate else len(data)
 
-    style_data_conditional = []
+    # Default higlights
+    style_data_conditional = [
+        {  # Highlight the selected cell
+            "if": {"state": "active"},
+            "backgroundColor": "lightblue",
+            "border": "1px solid blue",
+            "color": "black",
+        },
+        {  # Mark the 'Row' column in light grey
+            "if": {"column_id": "Row"},
+            "backgroundColor": "#F0F0F0",
+            "color": "#A0A0A0",
+        },
+    ]
     tooltip_data = [{} for _ in range(start_idx)]
     data_cols = [k for k in data[0].keys() if k != "Row"]
 
     # Iterate over each row in the modified data
     try:
-        # Highlight first column ('Row') in light grey
-        style_data_conditional.append(
-            {
-                "if": {"column_id": "Row"},
-                "backgroundColor": "#F0F0F0",
-                "color": "#A0A0A0",
-            }
-        )
         for i, row in enumerate(data[start_idx:end_idx]):
             row_tooltip = {}  # Store tooltips for the row
-            for column in data_cols:
-                original_value = original_data[i + start_idx].get(column, None)
-                modified_value = row.get(column, None)
-                # If the cell values differ, highlight and add a tooltip
-                if str(modified_value) != str(original_value):
-                    style_data_conditional.append(
-                        {
-                            "if": {"row_index": i, "column_id": column},
-                            "backgroundColor": "#FFDDC1",
-                            "color": "black",
-                        }
-                    )
-                    # Show original content as a tooltip
-                    row_tooltip[column] = {
-                        "value": f'Original: "{original_value}"',
-                        "type": "text",
+            errors = validation_errors[i + start_idx]
+            # First, check for validation errors and highlight row
+            if any(errors):
+                style_data_conditional.append(
+                    {
+                        "if": {"row_index": i},
+                        "backgroundColor": "#FFCCCC",
+                        "color": "black",
                     }
+                )
+                # Show validation errors per cell and show tooltip
+                for error in errors:
+                    if error["path"] in data_cols:
+                        style_data_conditional.append(
+                            {
+                                "if": {"row_index": i, "column_id": error["path"]},
+                                "border": "2px solid red",
+                            }
+                        )
+                        row_tooltip[error["path"]] = {
+                            "value": error["message"],
+                            "type": "text",
+                        }
+            else:
+                # Then, if the cell values differ, highlight and add a tooltip
+                for column in data_cols:
+                    original_value = original_data[i + start_idx].get(column, None)
+                    modified_value = row.get(column, None)
+                    if str(modified_value) != str(original_value):
+                        style_data_conditional.append(
+                            {
+                                "if": {"row_index": i, "column_id": column},
+                                "backgroundColor": "#FFDDC1",
+                                "color": "black",
+                            }
+                        )
+                        # Show original content as a tooltip
+                        row_tooltip[column] = {
+                            "value": f'Original: "{original_value}"',
+                            "type": "text",
+                        }
             tooltip_data.append(row_tooltip)
-
-        print(f"style_data_conditional: {style_data_conditional}")
-        print(f"tooltip_data: {tooltip_data}")
 
     except Exception as e:
         # Callback can sometimes be called on stale data causing key errors
@@ -481,12 +561,19 @@ def highlight_and_tooltip_changes(original_data, data, page_current, page_size):
     Input("editable-table", "data"),
     Input("editable-table", "page_current"),
     Input("editable-table", "page_size"),
+    Input("validation-errors", "data"),
     State("parsed-data-store", "data"),
     State("imported-tables-dropdown", "options"),
     State("imported-tables-dropdown", "value"),
 )
 def update_table_style_and_validate(
-    data, page_current, page_size, original_data, tables, selected_table
+    data,
+    page_current,
+    page_size,
+    validation_errors,
+    original_data,
+    tables,
+    selected_table,
 ):
     if not data:
         return [], []
@@ -496,7 +583,7 @@ def update_table_style_and_validate(
 
     # Highlight changes and create tooltips showing original data
     style_data_conditional, tooltip_data = highlight_and_tooltip_changes(
-        original_df, data, page_current, page_size
+        original_df, data, page_current, page_size, validation_errors
     )
 
     return style_data_conditional, tooltip_data

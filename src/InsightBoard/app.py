@@ -1,6 +1,6 @@
 from pathlib import Path
 import dash
-from dash import dcc, Input, Output, html
+from dash import dcc, html, callback, Input, Output, State
 import dash_bootstrap_components as dbc
 
 from .utils import get_projects_list, get_custom_assets_folder
@@ -27,10 +27,13 @@ server = app.server  # Expose the server
 def logo():
     if (Path(assets_path) / "logo.png").exists():
         return [
-            html.Img(
-                src="/assets/logo.png",
-                className="logo",
-                style={"maxHeight": "70px", "marginRight": "10px"},
+            html.A(
+                html.Img(
+                    src="/assets/logo.png",
+                    className="logo",
+                    style={"maxHeight": "70px", "marginRight": "10px"},
+                ),
+                href="/",
             )
         ]
     else:
