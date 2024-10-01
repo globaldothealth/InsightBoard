@@ -1,5 +1,6 @@
 import pandas as pd
 
+import json
 from pathlib import Path
 
 from InsightBoard.database import Database, DatabaseBackend
@@ -39,7 +40,7 @@ def get_projects_list():
 
 
 def get_custom_assets_folder() -> str | None:
-    assets_path = Path(get_projects_folder()) / ".." / "style"
+    assets_path = Path(get_projects_folder()).parent / "style"
     if assets_path.exists():
         # Return absolute path to the style sheets
         return str(assets_path)
@@ -67,6 +68,11 @@ class Project:
 
     def get_schemas_folder(self):
         return f"{self.project_folder}/schemas"
+
+    def get_schema(self, schema_name):
+        schema_path = Path(self.get_schemas_folder()) / f"{schema_name}.schema.json"
+        with open(schema_path, "r") as f:
+            return json.load(f)
 
     def get_reports_list(self):
         report_files = [
