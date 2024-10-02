@@ -12,7 +12,7 @@ dependencies = [
     "gunicorn>=23.0.0",
     "pyarrow>=17.0.0",
     "openpyxl>=3.1.5",
-    "adtl",
+    "adtl[parquet]>=0.6.0",
     "jsonschema>=4.23.0",
     "dash-dangerously-set-inner-html>=0.0.2",
 ]
