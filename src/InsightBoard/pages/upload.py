@@ -226,24 +226,31 @@ def update_table(options, selected_table, edited_datasets, parsed_datasets):
     return columns, data
 
 
-def clean_value(x):
-    # Empty cell (string to None)
-    if x == "":
-        return None
-    # To number (float or int)
-    try:
-        if "." in x:
-            return float(x)
-        else:
-            return int(x)
-    except Exception:
-        pass
-    # Arrays
-    try:
-        if x.startswith("[") and x.endswith("]"):
-            return list(map(clean_value, x[1:-1].split(",")))
-    except Exception:
-        pass
+def clean_value(x, target_type=None):
+    if target_type:
+        # Coerce to target type
+        try:
+            return pd.Series([x]).astype(target_type).values[0]
+        except Exception:
+            pass
+    else:
+        # Empty cell (string to None)
+        if x == "":
+            return None
+        # To number (float or int)
+        try:
+            if "." in x:
+                return float(x)
+            else:
+                return int(x)
+        except Exception:
+            pass
+        # Arrays
+        try:
+            if x.startswith("[") and x.endswith("]"):
+                return list(map(clean_value, x[1:-1].split(",")))
+        except Exception:
+            pass
     return x
 
 
