@@ -36,9 +36,9 @@ def parse_adtl(df: pd.DataFrame, spec_file, table_names) -> list[dict]:
     # Write the parsed data to a temporary file and load it into a pandas dataframe
     dfs = []
     for table_name in table_names:
-        with NamedTemporaryFile(suffix=".parquet") as parsed_temp_file:
-            parsed.write_parquet(table_name, parsed_temp_file.name)
-            df = pd.read_parquet(parsed_temp_file.name)
+        with NamedTemporaryFile(suffix=".csv") as parsed_temp_file:
+            parsed.write_csv(table_name, parsed_temp_file.name)
+            df = pd.read_csv(parsed_temp_file.name)
             # Drop ADTL-specific columns
             df.drop(columns=["adtl_valid", "adtl_error"], inplace=True)
             # Append the dataframe to the list
