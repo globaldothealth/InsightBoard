@@ -1,6 +1,6 @@
 # InsightBoard
 
-[![Documentation Status](https://readthedocs.org/projects/insightboard/badge/?version=latest)](https://insightboard.readthedocs.io/en/latest/?badge=latest)
+[![Unit and integration tests](https://github.com/globaldothealth/InsightBoard/actions/workflows/ci.yaml/badge.svg)](https://github.com/globaldothealth/InsightBoard/actions/workflows/ci.yaml) [![Documentation Status](https://readthedocs.org/projects/insightboard/badge/?version=latest)](https://insightboard.readthedocs.io/en/latest/?badge=latest)
 
 A dashboard to upload and manage data and generate reports.
 
