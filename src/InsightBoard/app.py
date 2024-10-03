@@ -27,7 +27,10 @@ app = dash.Dash(
     use_pages=True,
     external_stylesheets=[
         dbc.themes.BOOTSTRAP,
-        "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css",
+        (
+            "https://cdnjs.cloudflare.com/ajax/libs/"
+            "font-awesome/6.0.0-beta3/css/all.min.css"
+        ),
         *custom_css,
     ],
     suppress_callback_exceptions=True,
