@@ -20,6 +20,7 @@ def layout():
         [
             # Store
             dcc.Store(id="project"),  # current project (from navbar)
+            dcc.Store(id="unique-table-id"),  # unique id (project-table)
             dcc.Store(id="parsed-data-store"),  # parsed data (multi-table support)
             dcc.Store(id="edited-data-store"),  # edited data (multi-table support)
             dcc.Store(id="validation-errors"),  # validation errors (current table)
@@ -203,12 +204,13 @@ def update_page_size(page_size):
 @callback(
     Output("editable-table", "columns"),  # Update DataTable
     Output("editable-table", "data"),
-    Input("imported-tables-dropdown", "options"),  # Triggered by 'table' selection
+    Input("imported-tables-dropdown", "options"),  # Triggered by 'table' selection ...
     Input("imported-tables-dropdown", "value"),
+    Input("unique-table-id", "data"),
     State("edited-data-store", "data"),  # Populate with table from edited-data store
     State("parsed-data-store", "data"),
 )
-def update_table(options, selected_table, edited_datasets, parsed_datasets):
+def update_table(options, selected_table, unique_table_id, edited_datasets, parsed_datasets):
     # callback is triggered before edited_datasets is populated on first run
     datasets = edited_datasets
     if not datasets:
@@ -262,6 +264,12 @@ def clean_value(x, target_type=None):
         try:
             if x.startswith("[") and x.endswith("]"):
                 return list(map(clean_value, x[1:-1].split(",")))
+        except Exception:
+            pass
+        # Arrays
+        try:
+            if isinstance(x, str) and x.contains(","):
+                return list(map(clean_value, x.split(",")))
         except Exception:
             pass
     return x
@@ -321,6 +329,16 @@ def errorlist_to_sentence(errorlist: []) -> str:
     )
 
 
+def errors_to_dict(errors):
+    return [
+        [
+            {"path": str(x.path[0] if x.path else ""), "message": str(x.message)}
+            for x in error
+        ]
+        for error in errors
+    ]
+
+
 @callback(
     Output("validation-errors", "data"),  # Ouput error and warning data structures
     Output("validation-warnings", "data"),
@@ -361,15 +379,7 @@ def validate_errors(
         schema_file_strict = None
 
     # Validate the data against the schema
-    errors = utils.validate_against_jsonschema(df, schema_file_relaxed)
-    # Convert errors to a list of dictionaries for serialization
-    errors = [
-        [
-            {"path": str(x.path[0] if x.path else ""), "message": str(x.message)}
-            for x in error
-        ]
-        for error in errors
-    ]
+    errors = errors_to_dict(utils.validate_against_jsonschema(df, schema_file_relaxed))
 
     # If a strict schema exists, validate against that too
     warns = []
@@ -377,14 +387,7 @@ def validate_errors(
         schema_file_strict = (
             Path(projectObj.get_schemas_folder()) / f"{table_name}.schema.json"
         )
-        warns = utils.validate_against_jsonschema(df, schema_file_strict)
-    warns = [
-        [
-            {"path": str(x.path[0] if x.path else ""), "message": str(x.message)}
-            for x in warn
-        ]
-        for warn in warns
-    ]
+        warns = errors_to_dict(utils.validate_against_jsonschema(df, schema_file_strict))
 
     return errors, warns
 
@@ -485,6 +488,7 @@ def validate_log(
     Output("parsed-data-store", "data"),
     Output("imported-tables-dropdown", "options"),
     Output("imported-tables-dropdown", "value"),
+    Output("unique-table-id", "data"),
     Input("parse-button", "n_clicks"),
     Input("update-button", "n_clicks"),
     State("project", "data"),
@@ -512,6 +516,7 @@ def parse_file(
             None,
             [],
             None,
+            "",
         )
     ctx = dash.callback_context
     # Parse the data (read from files)
@@ -524,6 +529,7 @@ def parse_file(
             edited_data_store,  # move edited data into parsed data store
             tables_list,  # pass-through
             selected_table,  # pass-through
+            f"{project}-{selected_table}",
         )
 
 
@@ -534,6 +540,7 @@ def parse_data(project, contents, filename, selected_parser):
             None,
             [],
             None,
+            "",
         )
 
     # Process the uploaded file
@@ -546,7 +553,7 @@ def parse_data(project, contents, filename, selected_parser):
         elif ext == "xlsx":
             raw_df = pd.read_excel(io.BytesIO(decoded))
         else:
-            return "Unsupported file type.", None, [], None
+            return "Unsupported file type.", None, [], None, ""
 
         # Parse the data using the selected parser
         parsers_folder = projectObj.get_parsers_folder()
@@ -567,6 +574,7 @@ def parse_data(project, contents, filename, selected_parser):
             parsed_dbs_dict,
             parsed_dbs,
             parsed_dbs[0],
+            f"{project}-{parsed_dbs[0]}",
         )
 
     except Exception as e:
@@ -575,6 +583,7 @@ def parse_data(project, contents, filename, selected_parser):
             None,
             [],
             None,
+            "",
         )
 
 
@@ -582,6 +591,8 @@ def highlight_and_tooltip_changes(
     original_data, data, page_current, page_size, validation_errors
 ):
     """Compare the original and edited data, highlight changes, and show tooltips."""
+    if not page_size:
+        return [], []
     page_current = page_current or 0
 
     paginate = True
