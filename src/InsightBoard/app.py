@@ -3,9 +3,13 @@ import dash
 from dash import dcc, html, Input, Output
 import dash_bootstrap_components as dbc
 
-from .utils import get_projects_list, get_custom_assets_folder
+from .config import ConfigManager
+from .utils import get_projects_list, get_default_project, get_custom_assets_folder
 
 projects = get_projects_list()
+default_project = get_default_project()
+if default_project not in projects:
+    default_project = projects[0] if projects else None
 custom_assets = get_custom_assets_folder()
 assets_path = custom_assets if custom_assets else "/assets"
 custom_css = (
@@ -57,7 +61,7 @@ def ProjectDropDown():
             dcc.Dropdown(
                 id="project-dropdown",
                 options=[{"label": project, "value": project} for project in projects],
-                value=projects[0] if projects else [],  # Default
+                value=default_project,
                 clearable=False,
                 style={"width": "200px", "color": "black"},
                 placeholder="No project selected",
@@ -75,12 +79,15 @@ def ProjectDropDown():
 
 @app.callback(Output("project", "data"), Input("project-dropdown", "value"))
 def store_selected_project(project):
+    config = ConfigManager()
+    config.set("project.default", project)
+    config.save()
     return project
 
 
 app.layout = dbc.Container(
     [
-        dcc.Store(id="project", storage_type="memory"),
+        dcc.Store(id="project", storage_type="memory", data=default_project),
         dbc.NavbarSimple(
             children=[
                 dbc.NavLink("Home", href="/"),

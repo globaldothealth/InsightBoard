@@ -15,6 +15,7 @@ dependencies = [
     "adtl[parquet]>=0.6.0",
     "jsonschema>=4.23.0",
     "dash-dangerously-set-inner-html>=0.0.2",
+    "tomli-w>=1.0.0",
 ]
 scripts = { InsightBoard = "InsightBoard:main" }
 

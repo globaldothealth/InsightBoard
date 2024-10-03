@@ -1,9 +1,18 @@
 import tomllib
+import tomli_w
 import logging
 from pathlib import Path
 
 
 class ConfigManager:
+    _instance = None
+
+    # Make ConfigManager a singleton instance
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(ConfigManager, cls).__new__(cls, *args, **kwargs)
+        return cls._instance
+
     def __init__(self):
         # Define the path to the config file in the user's home directory
         self.config_dir = Path.home() / ".insightboard"
@@ -11,7 +20,7 @@ class ConfigManager:
 
         # Default configuration
         self.default_config = {
-            "project": {"folder": str(Path.home() / "InsightBoard" / "projects")}
+            "project": {"folder": str(Path.home() / "InsightBoard" / "projects")},
         }
 
         # Ensure the config file exists and load the config
@@ -67,4 +76,22 @@ class ConfigManager:
 
     def get_project_folder(self):
         """Get the project folder from the configuration."""
-        return self.config["project"]["folder"]
+        return self.config.get("project", {}).get("folder", None)
+
+    def get_default_project(self):
+        """Get the default project from the configuration."""
+        return self.config.get("project", {}).get("default", None)
+
+    def set(self, key, value):
+        """Set a key in the configuration."""
+        keys = key.split(".")
+        d = self.config  # Reference to dictionary
+        for key in keys[:-1]:
+            d = d.setdefault(key, {})
+        d[keys[-1]] = value
+
+    def save(self):
+        """Save the configuration to the TOML file."""
+        with open(self.config_file, "wb") as file:
+            tomli_w.dump(self.config, file)
+        logging.info(f"Configuration saved to {self.config_file}")
