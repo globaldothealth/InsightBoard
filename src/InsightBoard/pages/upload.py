@@ -212,7 +212,7 @@ def update_page_size(page_size):
 def update_table(
     options, selected_table, unique_table_id, edited_datasets, parsed_datasets
 ):
-    # callback is triggered before edited_datasets is populated on first run
+    # Callback is triggered before edited_datasets is populated on first run
     datasets = edited_datasets
     if not datasets:
         datasets = parsed_datasets
@@ -222,14 +222,11 @@ def update_table(
     data = datasets[options.index(selected_table)]
 
     # Convert any lists to strings for display
-    for row in data:
-        for k, v in row.items():
-            if isinstance(v, list):
-                row[k] = ", ".join(map(str, v))
+    data = clean_dataset(data, lists_to_strings=True)
 
     columns = [{"name": col, "id": col, "editable": True} for col in data[0].keys()]
 
-    # Prepend non-edtable 'Row' column
+    # Prepend non-editable 'Row' column
     columns.insert(0, {"name": "Row", "id": "Row", "editable": False})
     for i, row in enumerate(data):
         row["Row"] = i + 1
@@ -275,7 +272,7 @@ def clean_value(x, target_type=None):
             pass
         # Arrays
         try:
-            if isinstance(x, str) and x.contains(","):
+            if isinstance(x, str) and "," in x:
                 return list(map(remove_quotes, map(clean_value, x.split(","))))
         except Exception:
             pass
@@ -288,6 +285,21 @@ def clean_value(x, target_type=None):
         except Exception:
             pass
     return x
+
+
+def clean_datasets(datasets, *args, **kwargs):
+    for idx, dataset in enumerate(datasets):
+        datasets[idx] = clean_dataset(dataset, *args, **kwargs)
+    return datasets
+
+
+def clean_dataset(dataset, lists_to_strings=True):
+    for row in dataset:
+        for k, v in row.items():
+            row[k] = clean_value(v)
+            if lists_to_strings and isinstance(row[k], list):
+                row[k] = "[" + ", ".join(row[k]) + "]"
+    return dataset
 
 
 # When data is edited, update the edited-data-store
@@ -317,9 +329,7 @@ def update_edited_data(
     for row in edited_table_data:
         row.pop("Row", None)
     # Clean data
-    edited_table_data = [
-        {k: clean_value(v) for k, v in row.items()} for row in edited_table_data
-    ]
+    edited_table_data = clean_datasets([edited_table_data], lists_to_strings=True)[0]
     new_edited_data_store[tables.index(selected_table)] = edited_table_data
     return new_edited_data_store
 
@@ -375,6 +385,8 @@ def validate_errors(
     selected_table_index = parsed_dbs.index(selected_table)
     table_name = parsed_dbs[selected_table_index]
     df_dict = parsed_dbs_dict[selected_table_index]
+
+    df_dict = clean_dataset(df_dict, lists_to_strings=False)
     df = pd.DataFrame.from_records(df_dict)
 
     # Ensure that base schema file exists
@@ -591,6 +603,9 @@ def parse_data(project, contents, filename, selected_parser):
 
         # Dash cannot store DataFrames directly, so convert them to dictionaries
         parsed_dbs_dict = [df.to_dict("records") for df in parsed_dfs]
+
+        # Clean data for datatables
+        parsed_dbs_dict = clean_datasets(parsed_dbs_dict, lists_to_strings=True)
 
         return (
             f"File '{filename}' uploaded successfully.",
