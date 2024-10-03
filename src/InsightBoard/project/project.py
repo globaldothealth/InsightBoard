@@ -17,6 +17,15 @@ def get_projects_folder():
     return projects_folder
 
 
+def get_default_project():
+    """Get default project
+
+    Return the name of the default project.
+    """
+    config = ConfigManager()
+    return config.get_default_project()
+
+
 def get_projects_list():
     """Get projects list
 
