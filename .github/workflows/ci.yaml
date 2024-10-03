@@ -1,0 +1,30 @@
+name: Unit and integration tests
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-12, macos-14, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: |
+            3.11
+            3.12
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v2
+      - name: Run tests
+        run: |
+          uv sync --all-extras
+          uv run pytest
