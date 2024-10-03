@@ -102,6 +102,48 @@ app.layout = dbc.Container(
             color="primary",
             dark=True,
         ),
+        # Hearbeat interval and error reporting div
+        html.Div(
+            id="server-status",
+            style={
+                "font-size": "24px",
+                "text-align": "center",
+                "color": "red",
+                "border": "5px solid red",
+                "padding": "20px",
+                "display": "none",  # Initially hidden
+            },
+        ),
+        dcc.Interval(id="interval", interval=1000, n_intervals=0),
+        # Page contents
         dash.page_container,
     ],
+)
+
+# Client-side callback to check server status every second
+app.clientside_callback(
+    """
+    function(n_intervals) {
+        // Perform a heartbeat check to the server
+        return fetch(window.location.href)
+            .then(function(response) {
+                if (response.ok) {
+                    // When connected, hide the message completely (display: none)
+                    document.getElementById("server-status").style.display = "none";
+                    return "";
+                } else {
+                    // When disconnected, show the message with a red border
+                    document.getElementById("server-status").style.display = "block";
+                    return "The InsightBoard application has been closed";
+                }
+            })
+            .catch(function() {
+                // Handle connection error (server down)
+                document.getElementById("server-status").style.display = "block";
+                return "The InsightBoard application has been closed";
+            });
+    }
+    """,
+    Output("server-status", "children"),
+    Input("interval", "n_intervals"),
 )
