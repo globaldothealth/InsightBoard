@@ -1,5 +1,7 @@
 # InsightBoard
 
+[![Documentation Status](https://readthedocs.org/projects/insightboard/badge/?version=latest)](https://insightboard.readthedocs.io/en/latest/?badge=latest)
+
 A dashboard to upload and manage data and generate reports.
 
 ## Installation
