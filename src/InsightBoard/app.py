@@ -1,6 +1,6 @@
 from pathlib import Path
 import dash
-from dash import dcc, html, callback, Input, Output, State
+from dash import dcc, html, Input, Output
 import dash_bootstrap_components as dbc
 
 from .utils import get_projects_list, get_custom_assets_folder
@@ -8,14 +8,23 @@ from .utils import get_projects_list, get_custom_assets_folder
 projects = get_projects_list()
 custom_assets = get_custom_assets_folder()
 assets_path = custom_assets if custom_assets else "/assets"
+custom_css = (
+    [
+        str(Path(custom_assets).joinpath(css))
+        for css in Path(custom_assets).rglob("*.css")
+    ]
+    if custom_assets
+    else []
+)
 cogwheel = (html.I(className="fas fa-cog"),)
 
 app = dash.Dash(
     __name__,
     use_pages=True,
     external_stylesheets=[
-        dbc.themes.MINTY,
+        dbc.themes.BOOTSTRAP,
         "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css",
+        *custom_css,
     ],
     suppress_callback_exceptions=True,
     assets_folder=assets_path,
