@@ -53,6 +53,10 @@ class Project:
         self.name = name
         self.projects_folder = get_projects_folder()
         self.project_folder = f"{self.projects_folder}/{self.name}"
+        if not Path(self.project_folder).exists():
+            raise Exception(
+                f"Project '{self.name}' does not exist in '{self.projects_folder}'."
+            )
         self.database = Database(
             backend=DatabaseBackend.PARQUET, data_folder=self.get_data_folder()
         )
@@ -75,6 +79,9 @@ class Project:
             return json.load(f)
 
     def get_reports_list(self):
+        reports_folder = Path(self.get_reports_folder())
+        if not reports_folder.exists():
+            return []
         report_files = [
             f
             for f in Path(self.get_reports_folder()).iterdir()
@@ -84,15 +91,18 @@ class Project:
 
     def get_project_datasets(self):
         data_folder = Path(self.get_data_folder())
-        if data_folder.exists():
-            return [
-                {"filename": f, "label": f.with_suffix("").name}
-                for f in data_folder.iterdir()
-                if f.is_file() and f.suffix == ".parquet"
-            ]
-        return []
+        if not data_folder.exists():
+            return []
+        return [
+            {"filename": f, "label": f.with_suffix("").name}
+            for f in data_folder.iterdir()
+            if f.is_file() and f.suffix == ".parquet"
+        ]
 
     def get_project_parsers(self):
+        parsers_folder = Path(self.get_parsers_folder())
+        if not parsers_folder.exists():
+            return []
         return [
             {"filename": f, "label": f.with_suffix("").name}
             for f in Path(self.get_parsers_folder()).iterdir()

@@ -22,6 +22,9 @@ def layout():
             dcc.Store(id="parsed-data-store"),  # Store parsed DataFrame(s)
             dcc.Store(id="edited-data-store"),  # Store edited DataFrame(s)
             dcc.Store(id="validation-errors"),  # Store validation errors
+            dcc.Store(
+                id="show-full-validation-log"
+            ),  # Setting: Show full validation log
             html.H1("Upload data"),
             # Parser dropdown list (context-dependent on dataset)
             dbc.Col(
@@ -140,6 +143,16 @@ def layout():
             ),
             html.Div(id="commit-output"),
             dcc.ConfirmDialog(id="confirm-commit-dialog", message=""),
+            dbc.Checklist(
+                id="upload-settings",
+                options=[
+                    {"label": "Show full validation log", "value": 2},
+                ],
+                value=[],  # index which are 'on'
+                inline=True,
+                switch=True,
+                style={"margin": "10px"},
+            ),
             html.Hr(),
             html.Div(id="output-container"),
         ],
@@ -170,6 +183,14 @@ def update_filename(filename):
     if filename:
         return f"Selected file: {filename}"
     return "Select a data file"
+
+
+@callback(
+    Output("show-full-validation-log", "value"),
+    Input("upload-settings", "value"),
+)
+def update_show_full_validation_log(value):
+    return 2 in value
 
 
 # Callback to update the page size of the DataTable based on dropdown selection
@@ -206,15 +227,24 @@ def update_table(options, selected_table, edited_datasets, parsed_datasets):
 
 
 def clean_value(x):
+    # Empty cell (string to None)
     if x == "":
         return None
+    # To number (float or int)
     try:
         if "." in x:
             return float(x)
         else:
             return int(x)
     except Exception:
-        return x
+        pass
+    # Arrays
+    try:
+        if x.startswith("[") and x.endswith("]"):
+            return list(map(clean_value, x[1:-1].split(",")))
+    except Exception:
+        pass
+    return x
 
 
 @callback(
@@ -286,9 +316,20 @@ def errorlist_to_sentence_dict(errorlist: []) -> str:
     Input("parsed-data-store", "data"),
     Input("imported-tables-dropdown", "options"),
     Input("imported-tables-dropdown", "value"),
+    Input("show-full-validation-log", "value"),
+    Input("editable-table", "page_current"),
+    Input("editable-table", "page_size"),
     State("project", "data"),
 )
-def validate_tables(parsed_dbs_dict, parsed_dbs, selected_table, project):
+def validate_tables(
+    parsed_dbs_dict,
+    parsed_dbs,
+    selected_table,
+    show_full_validation_log,
+    page_current,
+    page_size,
+    project,
+):
     if not parsed_dbs_dict:
         return "Validation checks not yet run.", []
 
@@ -326,10 +367,28 @@ def validate_tables(parsed_dbs_dict, parsed_dbs, selected_table, project):
     # Validate the data against the schema
     errors = utils.validate_against_jsonschema(df, schema_file_relaxed)
     parsed_errors = [
-        f"Row {idx + 1} - {errorlist_to_sentence(x)}"
-        for idx, x in enumerate(errors)
-        if x
+        f"Row {idx + 1} - {errorlist_to_sentence(x)}" for idx, x in enumerate(errors)
     ]
+    rows_with_errors = len([x for x in errors if x])
+    comment = []
+    start_idx = 0
+    end_idx = -1
+    if not show_full_validation_log:
+        page_current = page_current or 0
+        start_idx = page_current * page_size
+        end_idx = (page_current + 1) * page_size
+        parsed_errors = parsed_errors[start_idx:end_idx]
+        comment.extend(
+            [
+                html.Br(),
+                html.I(
+                    "Only showing errors visible in table - "
+                    "Toggle 'Show full validation log' to view all",
+                ),
+            ]
+        )
+    parsed_errors = [x for x, y in zip(parsed_errors, errors[start_idx:end_idx]) if y]
+    # Convert errors to a list of dictionaries for serialization
     errors = [
         [
             {"path": str(x.path[0] if x.path else ""), "message": str(x.message)}
@@ -352,10 +411,17 @@ def validate_tables(parsed_dbs_dict, parsed_dbs, selected_table, project):
         ]
 
     # Construct validation messages
-    if not any(parsed_errors) and not any(parsed_warns):
+    if not rows_with_errors and not any(parsed_warns):
         return html.P("Validation passed successfully."), []
     msg_errors = [
         html.H3("Validation errors:", style={"color": "red"}),
+        html.P(
+            [
+                f"Total rows with errors: {rows_with_errors}",
+                *comment,
+            ],
+            style={"color": "red"},
+        ),
         html.P(
             text_to_html(error_report_message(parsed_errors)), style={"color": "red"}
         ),
