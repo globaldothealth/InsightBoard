@@ -116,7 +116,7 @@ app.layout = dbc.Container(
         ),
         dcc.Interval(id="interval", interval=1000, n_intervals=0),
         # Page contents
-        dash.page_container,
+        html.Div(dash.page_container, id="page-content"),
     ],
 )
 
@@ -130,16 +130,19 @@ app.clientside_callback(
                 if (response.ok) {
                     // When connected, hide the message completely (display: none)
                     document.getElementById("server-status").style.display = "none";
+                    document.getElementById("page-content").style.display = "block";
                     return "";
                 } else {
                     // When disconnected, show the message with a red border
                     document.getElementById("server-status").style.display = "block";
+                    document.getElementById("page-content").style.display = "none";
                     return "The InsightBoard application has been closed";
                 }
             })
             .catch(function() {
                 // Handle connection error (server down)
                 document.getElementById("server-status").style.display = "block";
+                document.getElementById("page-content").style.display = "none";
                 return "The InsightBoard application has been closed";
             });
     }
