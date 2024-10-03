@@ -18,13 +18,15 @@ projectObj = None
 def layout():
     return html.Div(
         [
-            dcc.Store(id="project"),  # Store the project name
-            dcc.Store(id="parsed-data-store"),  # Store parsed DataFrame(s)
-            dcc.Store(id="edited-data-store"),  # Store edited DataFrame(s)
-            dcc.Store(id="validation-errors"),  # Store validation errors
-            dcc.Store(
-                id="show-full-validation-log"
-            ),  # Setting: Show full validation log
+            # Store
+            dcc.Store(id="project"),  # current project (from navbar)
+            dcc.Store(id="parsed-data-store"),  # parsed data (multi-table support)
+            dcc.Store(id="edited-data-store"),  # edited data (multi-table support)
+            dcc.Store(id="validation-errors"),  # validation errors (current table)
+            dcc.Store(id="validation-warnings"),  # validation warnings (current table)
+            dcc.Store(id="show-full-validation-log"),  # Setting: Show full log
+
+            # Page rendering
             html.H1("Upload data"),
             # Parser dropdown list (context-dependent on dataset)
             dbc.Col(
@@ -148,7 +150,7 @@ def layout():
                 options=[
                     {"label": "Show full validation log", "value": 2},
                 ],
-                value=[],  # index which are 'on'
+                value=[],  # list of 'value's are are 'on', e.g. [2]
                 inline=True,
                 switch=True,
                 style={"margin": "10px"},
@@ -160,14 +162,13 @@ def layout():
     )
 
 
-# Callback to update parser dropdown based on selected dataset
+# Callback to update parser dropdown based on selected project
 @callback(
     Output("parser-dropdown", "options"),
     Input("project", "data"),
 )
 def update_parser_dropdown(project):
     if project:
-        # Return list of parsers for the selected dataset
         global projectObj
         projectObj = utils.get_project(project)
         parsers = projectObj.get_project_parsers()
@@ -200,11 +201,11 @@ def update_page_size(page_size):
 
 
 @callback(
-    Output("editable-table", "columns"),
+    Output("editable-table", "columns"),  # Update DataTable
     Output("editable-table", "data"),
-    Input("imported-tables-dropdown", "options"),
+    Input("imported-tables-dropdown", "options"),  # Triggered by 'table' selection
     Input("imported-tables-dropdown", "value"),
-    State("edited-data-store", "data"),
+    State("edited-data-store", "data"),  # Populate with table from edited-data store
     State("parsed-data-store", "data"),
 )
 def update_table(options, selected_table, edited_datasets, parsed_datasets):
@@ -216,6 +217,13 @@ def update_table(options, selected_table, edited_datasets, parsed_datasets):
         return [], []
 
     data = datasets[options.index(selected_table)]
+
+    # Convert any lists to strings for display
+    for row in data:
+        for k, v in row.items():
+            if isinstance(v, list):
+                row[k] = ", ".join(map(str, v))
+
     columns = [{"name": col, "id": col, "editable": True} for col in data[0].keys()]
 
     # Prepend non-edtable 'Row' column
@@ -234,6 +242,11 @@ def clean_value(x, target_type=None):
         except Exception:
             pass
     else:
+        # Strip whitespace
+        try:
+            x = x.strip()
+        except Exception:
+            pass
         # Empty cell (string to None)
         if x == "":
             return None
@@ -254,6 +267,7 @@ def clean_value(x, target_type=None):
     return x
 
 
+# When data is edited, update the edited-data-store
 @callback(
     Output("edited-data-store", "data"),
     Input("parsed-data-store", "data"),
@@ -300,17 +314,7 @@ def text_to_html(text: str) -> html.Div:
 def errorlist_to_sentence(errorlist: []) -> str:
     return "; ".join(
         [
-            f"'{'.'.join(map(str, error.path))}': {error.message}"
-            for error in errorlist
-            if error
-        ]
-    )
-
-
-def errorlist_to_sentence_dict(errorlist: []) -> str:
-    return "; ".join(
-        [
-            f"'{'.'.join(map(str, error['path']))}': {error['message']}"
+            f"'{error['path']}': {error['message']}"
             for error in errorlist
             if error
         ]
@@ -318,27 +322,21 @@ def errorlist_to_sentence_dict(errorlist: []) -> str:
 
 
 @callback(
-    Output("output-container", "children"),
-    Output("validation-errors", "data"),
-    Input("parsed-data-store", "data"),
-    Input("imported-tables-dropdown", "options"),
+    Output("validation-errors", "data"),  # Ouput error and warning data structures
+    Output("validation-warnings", "data"),
+    Input("parsed-data-store", "data"),  # Triggered by new parsed data ...
+    Input("imported-tables-dropdown", "options"),  # ... or new 'table' selection
     Input("imported-tables-dropdown", "value"),
-    Input("show-full-validation-log", "value"),
-    Input("editable-table", "page_current"),
-    Input("editable-table", "page_size"),
     State("project", "data"),
 )
-def validate_tables(
+def validate_errors(
     parsed_dbs_dict,
     parsed_dbs,
     selected_table,
-    show_full_validation_log,
-    page_current,
-    page_size,
     project,
 ):
     if not parsed_dbs_dict:
-        return "Validation checks not yet run.", []
+        return [], []
 
     selected_table_index = parsed_dbs.index(selected_table)
     table_name = parsed_dbs[selected_table_index]
@@ -348,16 +346,7 @@ def validate_tables(
     # Ensure that base schema file exists
     schema_file = Path(projectObj.get_schemas_folder()) / f"{table_name}.schema.json"
     if not schema_file.exists():
-        return html.Div(
-            [
-                html.H3("Validation errors:", style={"color": "red"}),
-                html.P(
-                    f"Schema file '{schema_file}' not found - cannot validate table.",
-                    style={"color": "red"},
-                ),
-            ],
-            [],
-        )
+        return [], []
 
     # Check whether a relaxed schema file exists
     schema_file_relaxed = (
@@ -373,28 +362,6 @@ def validate_tables(
 
     # Validate the data against the schema
     errors = utils.validate_against_jsonschema(df, schema_file_relaxed)
-    parsed_errors = [
-        f"Row {idx + 1} - {errorlist_to_sentence(x)}" for idx, x in enumerate(errors)
-    ]
-    rows_with_errors = len([x for x in errors if x])
-    comment = []
-    start_idx = 0
-    end_idx = -1
-    if not show_full_validation_log:
-        page_current = page_current or 0
-        start_idx = page_current * page_size
-        end_idx = (page_current + 1) * page_size
-        parsed_errors = parsed_errors[start_idx:end_idx]
-        comment.extend(
-            [
-                html.Br(),
-                html.I(
-                    "Only showing errors visible in table - "
-                    "Toggle 'Show full validation log' to view all",
-                ),
-            ]
-        )
-    parsed_errors = [x for x, y in zip(parsed_errors, errors[start_idx:end_idx]) if y]
     # Convert errors to a list of dictionaries for serialization
     errors = [
         [
@@ -405,12 +372,78 @@ def validate_tables(
     ]
 
     # If a strict schema exists, validate against that too
-    parsed_warns = []
+    warns = []
     if schema_file_strict:
         schema_file_strict = (
             Path(projectObj.get_schemas_folder()) / f"{table_name}.schema.json"
         )
         warns = utils.validate_against_jsonschema(df, schema_file_strict)
+    warns = [
+        [
+            {"path": str(x.path[0] if x.path else ""), "message": str(x.message)}
+            for x in warn
+        ]
+        for warn in warns
+    ]
+
+    return errors, warns
+
+
+@callback(
+    Output("output-container", "children"),  # Update the validation log display
+    Input("validation-errors", "data"),  # Triggered by any change in errors ...
+    Input("validation-warnings", "data"),  # ... or table view
+    Input("parsed-data-store", "data"),
+    Input("imported-tables-dropdown", "options"),
+    Input("imported-tables-dropdown", "value"),
+    Input("show-full-validation-log", "value"),
+    Input("editable-table", "page_current"),
+    Input("editable-table", "page_size"),
+    State("project", "data"),
+)
+def validate_log(
+    errors,
+    warns,
+    parsed_dbs_dict,
+    parsed_dbs,
+    selected_table,
+    show_full_validation_log,
+    page_current,
+    page_size,
+    project,
+):
+    if not errors and not warns:
+        return html.P("No validation errors.")
+
+    # Validate the data against the schema
+    parsed_errors = [
+        f"Row {idx + 1} - {errorlist_to_sentence(x)}"
+        for idx, x in enumerate(errors)
+    ]
+    rows_with_errors = len([x for x in errors if x])
+    comment = []
+    start_idx = 0
+    end_idx = -1
+    if not show_full_validation_log:
+        page_current = page_current or 0
+        start_idx = page_current * page_size
+        end_idx = (page_current + 1) * page_size
+        errors = errors[start_idx:end_idx]
+        parsed_errors = parsed_errors[start_idx:end_idx]
+        comment.extend(
+            [
+                html.Br(),
+                html.I(
+                    "Only showing errors visible in table - "
+                    "Toggle 'Show full validation log' to view all",
+                ),
+            ]
+        )
+    parsed_errors = [x for x, y in zip(parsed_errors, errors) if y]
+
+    # If a strict schema exists, validate against that too
+    parsed_warns = []
+    if warns:
         parsed_warns = [
             f"Row {idx + 1} - {errorlist_to_sentence(x)}"
             for idx, x in enumerate(warns)
@@ -419,7 +452,7 @@ def validate_tables(
 
     # Construct validation messages
     if not rows_with_errors and not any(parsed_warns):
-        return html.P("Validation passed successfully."), []
+        return html.P("Validation passed successfully.")
     msg_errors = [
         html.H3("Validation errors:", style={"color": "red"}),
         html.P(
@@ -443,7 +476,7 @@ def validate_tables(
             ),
         ]
 
-    return html.Div([*msg_errors, *msg_warns]), errors
+    return html.Div([*msg_errors, *msg_warns])
 
 
 # Callback to parse the file when "Parse" button is pressed
