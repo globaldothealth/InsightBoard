@@ -26,7 +26,6 @@ def layout():
             dcc.Store(id="validation-errors"),  # validation errors (current table)
             dcc.Store(id="validation-warnings"),  # validation warnings (current table)
             dcc.Store(id="show-full-validation-log"),  # Setting: Show full log
-
             # Page rendering
             html.H1("Upload data"),
             # Parser dropdown list (context-dependent on dataset)
@@ -173,7 +172,7 @@ def update_parser_dropdown(project):
         global projectObj
         projectObj = utils.get_project(project)
         parsers = projectObj.get_project_parsers()
-        return [parser["label"] for parser in parsers]
+        return list(sorted([parser["label"] for parser in parsers]))
     return []
 
 
@@ -210,7 +209,9 @@ def update_page_size(page_size):
     State("edited-data-store", "data"),  # Populate with table from edited-data store
     State("parsed-data-store", "data"),
 )
-def update_table(options, selected_table, unique_table_id, edited_datasets, parsed_datasets):
+def update_table(
+    options, selected_table, unique_table_id, edited_datasets, parsed_datasets
+):
     # callback is triggered before edited_datasets is populated on first run
     datasets = edited_datasets
     if not datasets:
@@ -236,6 +237,14 @@ def update_table(options, selected_table, unique_table_id, edited_datasets, pars
     return columns, data
 
 
+def remove_quotes(x):
+    if isinstance(x, str) and x.startswith('"') and x.endswith('"'):
+        return x[1:-1]
+    if isinstance(x, str) and x.startswith("'") and x.endswith("'"):
+        return x[1:-1]
+    return x
+
+
 def clean_value(x, target_type=None):
     if target_type:
         # Coerce to target type
@@ -252,24 +261,30 @@ def clean_value(x, target_type=None):
         # Empty cell (string to None)
         if x == "":
             return None
+        # Boolean
+        try:
+            if x.lower() in ["true", "false"]:
+                return x.lower() == "true"
+        except Exception:
+            pass
+        # Arrays
+        try:
+            if x.startswith("[") and x.endswith("]"):
+                return list(map(remove_quotes, map(clean_value, x[1:-1].split(","))))
+        except Exception:
+            pass
+        # Arrays
+        try:
+            if isinstance(x, str) and x.contains(","):
+                return list(map(remove_quotes, map(clean_value, x.split(","))))
+        except Exception:
+            pass
         # To number (float or int)
         try:
             if "." in x:
                 return float(x)
             else:
                 return int(x)
-        except Exception:
-            pass
-        # Arrays
-        try:
-            if x.startswith("[") and x.endswith("]"):
-                return list(map(clean_value, x[1:-1].split(",")))
-        except Exception:
-            pass
-        # Arrays
-        try:
-            if isinstance(x, str) and x.contains(","):
-                return list(map(clean_value, x.split(",")))
         except Exception:
             pass
     return x
@@ -288,11 +303,16 @@ def update_edited_data(
     parsed_data, edited_table_data, tables, selected_table, datasets
 ):
     ctx = dash.callback_context
-    if any(k["prop_id"] == "parsed-data-store.data" for k in ctx.triggered):
+    trig_parsed_data_store = ctx_trigger(ctx, "parsed-data-store.data")
+    if trig_parsed_data_store:
         # Parsed data has changed, so reset to the newly parsed data
-        return parsed_data
-    # Otherwise, update to the latest table edits
-    new_edited_data_store = datasets
+        new_edited_data_store = parsed_data
+    else:
+        # Otherwise, update to the latest table edits
+        new_edited_data_store = datasets
+    if not new_edited_data_store:
+        return []
+
     # Remove the 'Row' column before saving
     for row in edited_table_data:
         row.pop("Row", None)
@@ -321,11 +341,7 @@ def text_to_html(text: str) -> html.Div:
 
 def errorlist_to_sentence(errorlist: []) -> str:
     return "; ".join(
-        [
-            f"'{error['path']}': {error['message']}"
-            for error in errorlist
-            if error
-        ]
+        [f"'{error['path']}': {error['message']}" for error in errorlist if error]
     )
 
 
@@ -387,7 +403,9 @@ def validate_errors(
         schema_file_strict = (
             Path(projectObj.get_schemas_folder()) / f"{table_name}.schema.json"
         )
-        warns = errors_to_dict(utils.validate_against_jsonschema(df, schema_file_strict))
+        warns = errors_to_dict(
+            utils.validate_against_jsonschema(df, schema_file_strict)
+        )
 
     return errors, warns
 
@@ -420,8 +438,7 @@ def validate_log(
 
     # Validate the data against the schema
     parsed_errors = [
-        f"Row {idx + 1} - {errorlist_to_sentence(x)}"
-        for idx, x in enumerate(errors)
+        f"Row {idx + 1} - {errorlist_to_sentence(x)}" for idx, x in enumerate(errors)
     ]
     rows_with_errors = len([x for x in errors if x])
     comment = []
@@ -482,6 +499,10 @@ def validate_log(
     return html.Div([*msg_errors, *msg_warns])
 
 
+def ctx_trigger(ctx, event):
+    return any(k["prop_id"] == event for k in ctx.triggered)
+
+
 # Callback to parse the file when "Parse" button is pressed
 @callback(
     Output("output-upload-data", "children"),
@@ -515,15 +536,17 @@ def parse_file(
             "No parse requested.",
             None,
             [],
-            None,
+            "",
             "",
         )
     ctx = dash.callback_context
+    trig_parse_btn = ctx_trigger(ctx, "parse-button.n_clicks")
+    trig_update_btn = ctx_trigger(ctx, "update-button.n_clicks")
     # Parse the data (read from files)
-    if any(k["prop_id"] == "parse-button.n_clicks" for k in ctx.triggered):
+    if trig_parse_btn:
         return parse_data(project, contents, filename, selected_parser)
     # Update the data (make the current 'edited' buffer the new 'parsed' buffer)
-    if any(k["prop_id"] == "update-button.n_clicks" for k in ctx.triggered):
+    if trig_update_btn:
         return (
             "Validation run.",
             edited_data_store,  # move edited data into parsed data store
@@ -539,7 +562,7 @@ def parse_data(project, contents, filename, selected_parser):
             "Please select a dataset, parser, and file to parse.",
             None,
             [],
-            None,
+            "",
             "",
         )
 
@@ -553,7 +576,7 @@ def parse_data(project, contents, filename, selected_parser):
         elif ext == "xlsx":
             raw_df = pd.read_excel(io.BytesIO(decoded))
         else:
-            return "Unsupported file type.", None, [], None, ""
+            return "Unsupported file type.", None, [], "", ""
 
         # Parse the data using the selected parser
         parsers_folder = projectObj.get_parsers_folder()
@@ -582,7 +605,7 @@ def parse_data(project, contents, filename, selected_parser):
             f"There was an error processing the file: {str(e)}",
             None,
             [],
-            None,
+            "",
             "",
         )
 

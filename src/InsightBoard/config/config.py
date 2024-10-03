@@ -20,7 +20,9 @@ class ConfigManager:
 
         # Default configuration
         self.default_config = {
-            "project": {"folder": (Path.home() / "InsightBoard" / "projects").as_posix()},
+            "project": {
+                "folder": (Path.home() / "InsightBoard" / "projects").as_posix()
+            },
         }
 
         # Ensure the config file exists and load the config
