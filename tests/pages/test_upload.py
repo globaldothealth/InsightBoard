@@ -116,7 +116,12 @@ def test_clean_value():
     assert clean_value("1.1") == 1.1
     assert clean_value("1.1.1") == "1.1.1"
     assert clean_value("[1, 2, 3]") == [1, 2, 3]
+    assert clean_value("[1]") == [1]
+    assert clean_value("[a]") == ["a"]
     assert clean_value("[a, b, c]") == ["a", "b", "c"]
+    assert clean_value('["a", "b", "c"]') == ["a", "b", "c"]
+    assert clean_value("'a', 'b', 'c'") == ["a", "b", "c"]
+    assert clean_value("a, b, c") == ["a", "b", "c"]
 
 
 def test_update_edited_data():
