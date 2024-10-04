@@ -28,7 +28,7 @@ def layout():
             dcc.Store(id="show-full-validation-log"),  # Setting: Show full log
             # Page rendering
             html.H1("Upload data"),
-            dcc.Location(id='url-refresh', refresh=True),
+            dcc.Location(id="url-refresh", refresh=True),
             html.Div(id="output-upload-data"),
             html.Div(
                 [
@@ -584,7 +584,9 @@ def parse_file(
     trig_update_btn = ctx_trigger(ctx, "update-button.n_clicks")
     # Parse the data (read from files)
     if trig_parse_btn:
-        msg, parsed_data_store, *rtn = parse_data(project, contents, filename, selected_parser)
+        msg, parsed_data_store, *rtn = parse_data(
+            project, contents, filename, selected_parser
+        )
         if parsed_data_store:
             # Update the table dropdown
             return (

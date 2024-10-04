@@ -8,11 +8,14 @@ Documentation: [ReadTheDocs](https://insightboard.readthedocs.io/en/latest)
 
 ## Installation
 
-Install using your favourite package manager. It is recommended to install into a virtual environment. We recommend using [uv](https://github.com/astral-sh/uv) to manage the virtual environment.
-
+Install **Insight**Board using your favourite package manager. For `pip` this would be:
 ```bash
-uv sync
-. .venv/bin/activate
+pip install InsightBoard
+```
+
+You will also want to install ADTL (Another Data Transform Language) to make full use of the parsers, including those supplied with the sample project:
+```bash
+pip install "adtl[parquet] @ git+https://github.com/globaldothealth/adtl"
 ```
 
 To launch the dashboard, simply type `InsightBoard` from the command line. The dashboard should appear in your default web browser. By default the dashboard will be available at http://localhost:8050/.
@@ -35,4 +38,11 @@ Details of how to create a new project are provided in the accompanying [documen
 
 ## Development
 
-To launch the dashboard in development mode, follow the [Installation](#installation) instructions but instead launch with `python -m InsightBoard`.
+If you have cloned the repository, it is recommended to install into a virtual environment. We use [uv](https://docs.astral.sh/uv/) to manage virtual environments. First, [install `uv`](https://docs.astral.sh/uv/getting-started/installation/), then activate the virtual environment:
+
+```bash
+uv sync
+. .venv/bin/activate
+```
+
+To launch the dashboard in development mode run `python -m InsightBoard`.

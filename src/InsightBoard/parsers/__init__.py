@@ -1,7 +1,28 @@
-import adtl as adtl_parser
+import shutil
 import subprocess
 import pandas as pd
 from tempfile import NamedTemporaryFile
+
+try:
+    import adtl as adtl_parser
+except ImportError:
+    adtl_parser = None
+
+
+def adtl_check_command():
+    if shutil.which("adtl") is None:
+        raise ImportError(
+            "ADTL is not installed. Please install it using `pip install "
+            '"adtl[parquet] @ git+https://github.com/globaldothealth/adtl"`'
+        )
+
+
+def adtl_check_parser():
+    if adtl_parser is None:
+        raise ImportError(
+            "ADTL is not installed. Please install it using `pip install "
+            '"adtl[parquet] @ git+https://github.com/globaldothealth/adtl"`'
+        )
 
 
 def adtl(df: pd.DataFrame, specification: str, *cl_args) -> dict:
@@ -12,6 +33,7 @@ def adtl(df: pd.DataFrame, specification: str, *cl_args) -> dict:
         specification: Path to ADTL specification file
         *cl_args: List of additional command-line arguments to pass to ADTL
     """
+    adtl_check_command()
     # Write pandas dataframe to temp file, then run adtl
     with NamedTemporaryFile(suffix=".csv") as input_csv:
         df.to_csv(input_csv.name, index=False)
@@ -23,6 +45,7 @@ def adtl(df: pd.DataFrame, specification: str, *cl_args) -> dict:
 
 
 def parse_adtl(df: pd.DataFrame, spec_file, table_names) -> list[dict]:
+    adtl_check_parser()
     if isinstance(table_names, str):
         table_names = [table_names]
 
