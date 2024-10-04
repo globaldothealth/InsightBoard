@@ -28,46 +28,60 @@ def layout():
             dcc.Store(id="show-full-validation-log"),  # Setting: Show full log
             # Page rendering
             html.H1("Upload data"),
-            # Parser dropdown list (context-dependent on dataset)
-            dbc.Col(
-                dcc.Dropdown(
-                    id="parser-dropdown",
-                    options=[],
-                    placeholder="Select a parser",
-                    style={"width": "100%"},
-                ),
-                width=6,
-            ),
-            # Upload drop-space
-            dcc.Upload(
-                id="upload-data",
-                children=html.Div(
-                    ["Drag and Drop or ", html.A("Select a File")],
-                    id="upload-data-filename",
-                ),
-                style={
-                    "width": "50%",
-                    "height": "60px",
-                    "lineHeight": "60px",
-                    "borderWidth": "1px",
-                    "borderStyle": "dashed",
-                    "borderRadius": "5px",
-                    "textAlign": "center",
-                    "marginTop": "10px",
-                    "marginBottom": "10px",
-                },
-                multiple=False,  # Only allow one file to be uploaded
-            ),
+            dcc.Location(id='url-refresh', refresh=True),
             html.Div(id="output-upload-data"),
-            # Parse Button to start file parsing
-            dbc.Button("Parse File", id="parse-button", n_clicks=0),
-            # Dropdown for imported tables
-            dcc.Dropdown(
-                id="imported-tables-dropdown",
-                options=[],
-                placeholder="Select a table",
-                clearable=False,
-                style={"float": "right", "width": "50%"},
+            html.Div(
+                [
+                    # Parser dropdown list (context-dependent on dataset)
+                    dbc.Col(
+                        dcc.Dropdown(
+                            id="parser-dropdown",
+                            options=[],
+                            placeholder="Select a parser",
+                            style={"width": "100%"},
+                        ),
+                        width=6,
+                    ),
+                    # Upload drop-space
+                    dcc.Upload(
+                        id="upload-data",
+                        children=html.Div(
+                            ["Drag and Drop or ", html.A("Select a File")],
+                            id="upload-data-filename",
+                        ),
+                        style={
+                            "width": "50%",
+                            "height": "60px",
+                            "lineHeight": "60px",
+                            "borderWidth": "1px",
+                            "borderStyle": "dashed",
+                            "borderRadius": "5px",
+                            "textAlign": "center",
+                            "marginTop": "10px",
+                            "marginBottom": "10px",
+                        },
+                        multiple=False,  # Only allow one file to be uploaded
+                    ),
+                    # Parse Button to start file parsing
+                    dbc.Button("Parse File", id="parse-button", n_clicks=0),
+                ],
+                id="file-settings",
+                style={"display": "block"},
+            ),
+            html.Div(
+                [
+                    dbc.Button("Close File", id="close-button", n_clicks=0),
+                    # Dropdown for imported tables
+                    dcc.Dropdown(
+                        id="imported-tables-dropdown",
+                        options=[],
+                        placeholder="Select a table",
+                        clearable=False,
+                        style={"float": "right", "width": "50%"},
+                    ),
+                ],
+                id="close-settings",
+                style={"display": "none"},
             ),
             # DataTable for editing
             dcc.Loading(
@@ -160,6 +174,16 @@ def layout():
         ],
         style={"width": "100%"},
     )
+
+
+@callback(
+    Output("url-refresh", "href"),
+    Input("close-button", "n_clicks"),
+)
+def refresh_url(n_clicks):
+    if n_clicks:
+        return "/upload"
+    return None
 
 
 # Callback to update parser dropdown based on selected project
@@ -522,6 +546,8 @@ def ctx_trigger(ctx, event):
     Output("imported-tables-dropdown", "options"),
     Output("imported-tables-dropdown", "value"),
     Output("unique-table-id", "data"),
+    Output("file-settings", "style"),
+    Output("close-settings", "style"),
     Input("parse-button", "n_clicks"),
     Input("update-button", "n_clicks"),
     State("project", "data"),
@@ -545,18 +571,38 @@ def parse_file(
 ):
     if not parse_n_clicks and not update_n_clicks:
         return (
-            "No parse requested.",
+            "Please select a parser and file to parse.",
             None,
             [],
             "",
             "",
+            {"display": "block"},
+            {"display": "none"},
         )
     ctx = dash.callback_context
     trig_parse_btn = ctx_trigger(ctx, "parse-button.n_clicks")
     trig_update_btn = ctx_trigger(ctx, "update-button.n_clicks")
     # Parse the data (read from files)
     if trig_parse_btn:
-        return parse_data(project, contents, filename, selected_parser)
+        msg, parsed_data_store, *rtn = parse_data(project, contents, filename, selected_parser)
+        if parsed_data_store:
+            # Update the table dropdown
+            return (
+                msg,
+                parsed_data_store,
+                *rtn,
+                {"display": "none"},
+                {"display": "block"},
+            )
+        else:
+            # If there was an error, return the error message
+            return (
+                msg,
+                parsed_data_store,
+                *rtn,
+                {"display": "block"},
+                {"display": "none"},
+            )
     # Update the data (make the current 'edited' buffer the new 'parsed' buffer)
     if trig_update_btn:
         return (
@@ -565,13 +611,15 @@ def parse_file(
             tables_list,  # pass-through
             selected_table,  # pass-through
             f"{project}-{selected_table}",
+            {"display": "none"},
+            {"display": "block"},
         )
 
 
 def parse_data(project, contents, filename, selected_parser):
     if not contents or not selected_parser:
         return (
-            "Please select a dataset, parser, and file to parse.",
+            "Please select a parser, and file to parse.",
             None,
             [],
             "",
