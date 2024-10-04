@@ -2,6 +2,8 @@ import subprocess
 import webbrowser
 from .app import app  # noqa: F401
 
+from .version import __version__  # noqa: F401
+
 
 def main(debug=False):
     port = 8050
