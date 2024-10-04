@@ -298,7 +298,7 @@ def clean_dataset(dataset, lists_to_strings=True):
         for k, v in row.items():
             row[k] = clean_value(v)
             if lists_to_strings and isinstance(row[k], list):
-                row[k] = "[" + ", ".join(row[k]) + "]"
+                row[k] = "[" + ", ".join([x for x in row[k] if x]) + "]"
     return dataset
 
 
