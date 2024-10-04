@@ -4,12 +4,13 @@
 
 A dashboard to upload and manage data and generate reports.
 
+Documentation: [ReadTheDocs](https://insightboard.readthedocs.io/en/latest)
+
 ## Installation
 
 Install using your favourite package manager. It is recommended to install into a virtual environment. We recommend using [uv](https://github.com/astral-sh/uv) to manage the virtual environment.
 
 ```bash
-uv venv
 uv sync
 . .venv/bin/activate
 ```
