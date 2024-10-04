@@ -62,6 +62,7 @@ maxdepth: 2
 ---
 self
 getting_started/index
+usage/index
 projects/index
 advanced/branding
 ```
