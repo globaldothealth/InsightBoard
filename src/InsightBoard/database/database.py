@@ -24,8 +24,15 @@ class DatabaseBase(ABC):
         self.data_folder = data_folder
 
     def commit_tables_dict(self, table_names: [str], datasets: [dict]):
+        if not isinstance(table_names, list):
+            table_names = [table_names]
         if not isinstance(datasets, list):
             datasets = [datasets]
+        if len(table_names) != len(datasets):
+            raise ValueError(
+                f"Length of table_names ({len(table_names)}) does not match length of "
+                "datasets ({len(datasets)})"
+            )
         for idx, data in enumerate(datasets):
             datasets[idx] = pd.DataFrame(data)
         self.commit_tables(table_names, datasets)
@@ -35,6 +42,11 @@ class DatabaseBase(ABC):
             table_names = [table_names]
         if not isinstance(datasets, list):
             datasets = [datasets]
+        if len(table_names) != len(datasets):
+            raise ValueError(
+                f"Length of table_names ({len(table_names)}) does not match length of "
+                "datasets ({len(datasets)})"
+            )
         for table_name, df in zip(table_names, datasets, strict=True):
             self.commit_table(table_name, df)
 
@@ -65,15 +77,15 @@ class DatabaseBase(ABC):
 
     @abstractmethod
     def get_tables_list(self):
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     def read_table(self, table_name: str) -> pd.DataFrame:
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     def commit_table(self, table_name: str, df: pd.DataFrame):
-        pass
+        pass  # pragma: no cover
 
 
 class DatabaseParquet(DatabaseBase):
