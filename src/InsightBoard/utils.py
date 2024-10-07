@@ -40,7 +40,12 @@ def validate_against_jsonschema(df: pd.DataFrame, schema):
     # schema validation
     error_list = []
     for idx, row in df.iterrows():
-        errors = validate_row_jsonschema(idx, row.to_dict(), schema)
+        row_dict = row.to_dict()
+        # .to_dict() treats NA as NaN; need to replace with None for validation
+        for k, v in row_dict.items():
+            if isinstance(v, float) and pd.isna(v):
+                row_dict[k] = None
+        errors = validate_row_jsonschema(idx, row_dict, schema)
         error_list.append(errors)
     return error_list
 
