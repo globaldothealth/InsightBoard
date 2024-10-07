@@ -176,9 +176,10 @@ def layout():
     )
 
 
+# Force reload of the page
 @callback(
-    Output("url-refresh", "href"),
-    Input("close-button", "n_clicks"),
+    Output("url-refresh", "href"),  # Refresh the page
+    Input("close-button", "n_clicks"),  # Triggered by 'Close File' button
 )
 def refresh_url(n_clicks):
     if n_clicks:
@@ -186,10 +187,10 @@ def refresh_url(n_clicks):
     return None
 
 
-# Callback to update parser dropdown based on selected project
+# Update parser dropdown based on selected project
 @callback(
-    Output("parser-dropdown", "options"),
-    Input("project", "data"),
+    Output("parser-dropdown", "options"),  # Update parser dropdown options
+    Input("project", "data"),  # Triggered by project selection in navbar
 )
 def update_parser_dropdown(project):
     if project:
@@ -200,9 +201,10 @@ def update_parser_dropdown(project):
     return []
 
 
+# Display selected data file to user
 @callback(
-    Output("upload-data-filename", "children"),
-    Input("upload-data", "filename"),
+    Output("upload-data-filename", "children"),  # Update the filename display
+    Input("upload-data", "filename"),  # Triggered by file selection
 )
 def update_filename(filename):
     if filename:
@@ -210,20 +212,25 @@ def update_filename(filename):
     return "Select a data file"
 
 
+# Update state when settings are changed: Show Full Validation Log
 @callback(
-    Output("show-full-validation-log", "value"),
-    Input("upload-settings", "value"),
+    Output("show-full-validation-log", "value"),  # Update the 'show full log' setting
+    Input("upload-settings", "value"),  # Triggered by settings switch changes
 )
 def update_show_full_validation_log(value):
     return 2 in value
 
 
-# Callback to update the page size of the DataTable based on dropdown selection
-@callback(Output("editable-table", "page_size"), Input("rows-dropdown", "value"))
+# Update page size of the DataTable based on dropdown selection
+@callback(
+    Output("editable-table", "page_size"),  # Update the DataTable page size
+    Input("rows-dropdown", "value"),  # Triggered by 'rows per page' dropdown
+)
 def update_page_size(page_size):
     return page_size
 
 
+# When a table name is selected from the dropdown, update the DataTable display
 @callback(
     Output("editable-table", "columns"),  # Update DataTable
     Output("editable-table", "data"),
@@ -258,6 +265,7 @@ def update_table(
     return columns, data
 
 
+# Utility function to remove quotes from strings
 def remove_quotes(x):
     if isinstance(x, str) and x.startswith('"') and x.endswith('"'):
         return x[1:-1]
@@ -266,6 +274,7 @@ def remove_quotes(x):
     return x
 
 
+# Utility function to clean data values, coercing to target type if specified
 def clean_value(x, target_type=None):
     if target_type:
         # Coerce to target type
@@ -311,12 +320,7 @@ def clean_value(x, target_type=None):
     return x
 
 
-def clean_datasets(datasets, *args, **kwargs):
-    for idx, dataset in enumerate(datasets):
-        datasets[idx] = clean_dataset(dataset, *args, **kwargs)
-    return datasets
-
-
+# Utility function to clean a dataset
 def clean_dataset(dataset, lists_to_strings=True):
     for row in dataset:
         for k, v in row.items():
@@ -326,11 +330,18 @@ def clean_dataset(dataset, lists_to_strings=True):
     return dataset
 
 
-# When data is edited, update the edited-data-store
+# Utility function to clean multiple datasets in one call
+def clean_datasets(datasets, *args, **kwargs):
+    for idx, dataset in enumerate(datasets):
+        datasets[idx] = clean_dataset(dataset, *args, **kwargs)
+    return datasets
+
+
+# When edits are made in the DataTable, update the edited-data-store
 @callback(
-    Output("edited-data-store", "data"),
-    Input("parsed-data-store", "data"),
-    Input("editable-table", "data"),
+    Output("edited-data-store", "data"),  # Update the edited data store
+    Input("parsed-data-store", "data"),  # Triggered by new 'parsed data' ...
+    Input("editable-table", "data"),  # ... or DataTable edits
     State("imported-tables-dropdown", "options"),
     State("imported-tables-dropdown", "value"),
     State("edited-data-store", "data"),
@@ -358,6 +369,7 @@ def update_edited_data(
     return new_edited_data_store
 
 
+# Utility function to format validation errors for display
 def error_report_message(errors: []) -> str:
     # Expecting a list of string/None validation errors
     if not any(errors):
@@ -367,18 +379,21 @@ def error_report_message(errors: []) -> str:
     return errors
 
 
+# Utility function to convert text to HTML for display
 def text_to_html(text: str) -> html.Div:
     return html.Div(
         [html.Pre(text, style={"white-space": "pre-wrap", "word-wrap": "break-word"})]
     )
 
 
+# Utility function to convert a list of errors to a sentence for display
 def errorlist_to_sentence(errorlist: []) -> str:
     return "; ".join(
         [f"'{error['path']}': {error['message']}" for error in errorlist if error]
     )
 
 
+# Utility function to convert schema validation errors to a serializable dictionary
 def errors_to_dict(errors):
     return [
         [
@@ -389,6 +404,7 @@ def errors_to_dict(errors):
     ]
 
 
+# Validate the stored data against a target schema
 @callback(
     Output("validation-errors", "data"),  # Ouput error and warning data structures
     Output("validation-warnings", "data"),
@@ -446,6 +462,7 @@ def validate_errors(
     return errors, warns
 
 
+# Display the validation error log
 @callback(
     Output("output-container", "children"),  # Update the validation log display
     Input("validation-errors", "data"),  # Triggered by any change in errors ...
@@ -539,17 +556,17 @@ def ctx_trigger(ctx, event):
     return any(k["prop_id"] == event for k in ctx.triggered)
 
 
-# Callback to parse the file when "Parse" button is pressed
+# Parse the select data file when "Parse" button is pressed
 @callback(
-    Output("output-upload-data", "children"),
-    Output("parsed-data-store", "data"),
+    Output("output-upload-data", "children"),  # Update parsed data store and ...
+    Output("parsed-data-store", "data"),  # ... GUI elements
     Output("imported-tables-dropdown", "options"),
     Output("imported-tables-dropdown", "value"),
     Output("unique-table-id", "data"),
     Output("file-settings", "style"),
     Output("close-settings", "style"),
-    Input("parse-button", "n_clicks"),
-    Input("update-button", "n_clicks"),
+    Input("parse-button", "n_clicks"),  # Triggered by 'Parse' button click ...
+    Input("update-button", "n_clicks"),  # ... or 'Update' button click
     State("project", "data"),
     State("upload-data", "contents"),
     State("upload-data", "filename"),
@@ -618,6 +635,7 @@ def parse_file(
         )
 
 
+# Utility function to read and parse a data file
 def parse_data(project, contents, filename, selected_parser):
     if not contents or not selected_parser:
         return (
@@ -675,6 +693,7 @@ def parse_data(project, contents, filename, selected_parser):
         )
 
 
+# Apply table highlights and tooltips to show changes
 def highlight_and_tooltip_changes(
     original_data, data, page_current, page_size, validation_errors
 ):
@@ -759,14 +778,14 @@ def highlight_and_tooltip_changes(
     return style_data_conditional, tooltip_data
 
 
-# Callback to highlight changes, show tooltips, and validate the data
+# Update the table style and tooltips based on validation errors
 @callback(
-    Output("editable-table", "style_data_conditional"),
-    Output("editable-table", "tooltip_data"),
-    Input("editable-table", "data"),
+    Output("editable-table", "style_data_conditional"),  # Update the table style ...
+    Output("editable-table", "tooltip_data"),  # ... and tooltips
+    Input("editable-table", "data"),  # Triggered by any change in the table data ...
     Input("editable-table", "page_current"),
     Input("editable-table", "page_size"),
-    Input("validation-errors", "data"),
+    Input("validation-errors", "data"),  # ... or validation errors
     State("parsed-data-store", "data"),
     State("imported-tables-dropdown", "options"),
     State("imported-tables-dropdown", "value"),
@@ -794,10 +813,10 @@ def update_table_style_and_validate(
     return style_data_conditional, tooltip_data
 
 
-# Callback for downloading data as CSV
+# Downloading DataTable as CSV
 @callback(
-    Output("download-csv", "data"),
-    Input("download-button", "n_clicks"),
+    Output("download-csv", "data"),  # Download the CSV file
+    Input("download-button", "n_clicks"),  # Triggered by 'Download as CSV' button
     State("editable-table", "data"),
     prevent_initial_call=True,  # Only trigger when the button is clicked
 )
@@ -808,10 +827,11 @@ def download_csv(n_clicks, data):
         return dcc.send_data_frame(df.to_csv, "modified_data.csv", index=False)
 
 
+# Display a confirmation dialog when the commit button is clicked
 @callback(
-    Output("confirm-commit-dialog", "displayed"),
+    Output("confirm-commit-dialog", "displayed"),  # Show the dialog
     Output("confirm-commit-dialog", "message"),
-    Input("commit-button", "n_clicks"),
+    Input("commit-button", "n_clicks"),  # Triggered by 'Commit' button click
     State("imported-tables-dropdown", "options"),
 )
 def display_confirm_dialog(n_clicks, table_names):
@@ -823,11 +843,11 @@ def display_confirm_dialog(n_clicks, table_names):
     return False, ""
 
 
-# Callback for committing changes to the database
+# Commit changes to the database
 @callback(
-    Output("commit-output", "children"),
-    Output("commit-button", "disabled"),
-    Input("confirm-commit-dialog", "submit_n_clicks"),
+    Output("commit-output", "children"),  # Update the commit output message ...
+    Output("commit-button", "disabled"),  # ... and disable the commit button
+    Input("confirm-commit-dialog", "submit_n_clicks"),  # Triggered by 'Confirm' dialog
     State("project", "data"),
     State("imported-tables-dropdown", "options"),
     State("edited-data-store", "data"),
