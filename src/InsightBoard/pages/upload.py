@@ -1,3 +1,4 @@
+import math
 import dash
 import pandas as pd
 import dash_bootstrap_components as dbc
@@ -333,15 +334,18 @@ def clean_value(x, key_name=None, dtypes={}):
     if "number" in target_types and isinstance(x, str):
         try:
             if "." in x:
-                return float(x)
+                n = float(x)
+                if math.isnan(n):
+                    return None
             else:
-                return int(x)
+                n = int(x)
+            return n
         except Exception:
             pass
 
     if "integer" in target_types and isinstance(x, str):
         try:
-            return int(x)
+            return int(x)  # int cannot be nan
         except Exception:
             pass
 
@@ -490,6 +494,7 @@ def validate_errors(
         schema_file_strict = None
 
     # Validate the data against the schema
+    df = df.where(pd.notnull(df), None)
     errors = errors_to_dict(utils.validate_against_jsonschema(df, schema_file_relaxed))
 
     # If a strict schema exists, validate against that too
