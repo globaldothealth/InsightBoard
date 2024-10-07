@@ -1,4 +1,5 @@
 import json
+import logging
 import importlib
 import pandas as pd
 
@@ -47,3 +48,14 @@ def validate_against_jsonschema(df: pd.DataFrame, schema):
 def validate_row_jsonschema(row_number, row, schema):
     validator = Draft7Validator(schema)
     return list(validator.iter_errors(row))
+
+
+def ensure_schema_ordering(columns, project, table):
+    try:
+        projectObj = get_project(project)
+        schema = projectObj.database.get_table_schema(table)
+        schema_order = list(schema["properties"].keys())
+        columns = sorted(columns, key=lambda x: schema_order.index(x["id"]))
+    except Exception as e:
+        logging.info(f"Error in ensure_schema_ordering: {str(e)}")
+    return columns

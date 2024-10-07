@@ -228,17 +228,6 @@ def update_page_size(page_size):
     return page_size
 
 
-def ensure_schema_ordering(columns, project, table):
-    try:
-        projectObj = utils.get_project(project)
-        schema = projectObj.database.get_table_schema(table)
-        schema_order = list(schema["properties"].keys())
-        columns = sorted(columns, key=lambda x: schema_order.index(x["id"]))
-    except Exception as e:
-        logging.info(f"Error in ensure_schema_ordering: {str(e)}")
-    return columns
-
-
 # When a table name is selected from the dropdown, update the DataTable display
 @callback(
     Output("editable-table", "columns"),  # Update DataTable
@@ -266,7 +255,7 @@ def update_table(
     data = clean_dataset(data, project, selected_table, lists_to_strings=True)
     keys = next(iter(data)).keys()
     columns = [{"name": col, "id": col, "editable": True} for col in keys]
-    columns = ensure_schema_ordering(columns, project, selected_table)
+    columns = utils.ensure_schema_ordering(columns, project, selected_table)
 
     # Prepend non-editable 'Row' column
     columns.insert(0, {"name": "Row", "id": "Row", "editable": False})

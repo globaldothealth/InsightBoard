@@ -123,8 +123,9 @@ def update_table_list(selected_project):
     Output("datatable-table", "data"),
     Output("datatable-report-length", "children"),
     Input("table-dropdown", "value"),
+    State("project", "data"),
 )
-def load_selected_table(selected_table):
+def load_selected_table(selected_table, project):
     if not selected_table:
         return [], [], ""
 
@@ -134,9 +135,15 @@ def load_selected_table(selected_table):
     except Exception as e:
         return [], [], f"Error loading table: {str(e)}"
 
+    columns = utils.ensure_schema_ordering(
+        [{"name": col, "id": col} for col in df.columns],
+        project,
+        selected_table,
+    )
+
     # Dynamically create the DataTable
     return (
-        [{"name": col, "id": col} for col in df.columns],
+        columns,
         df.to_dict("records"),
         f"Number of records: {len(df)}",
     )
