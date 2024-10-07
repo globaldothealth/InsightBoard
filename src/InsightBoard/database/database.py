@@ -6,6 +6,7 @@ import pyarrow.parquet as pq
 from enum import Enum
 from pathlib import Path
 from pyarrow import Table
+from functools import cache
 from abc import ABC, abstractmethod
 
 
@@ -38,14 +39,7 @@ class DatabaseBase(ABC):
             self.commit_table(table_name, df)
 
     def get_primary_key(self, table_name: str):
-        schema_filename = (
-            Path(self.data_folder).parent / "schemas" / f"{table_name}.schema.json"
-        )
-        try:
-            with open(schema_filename, "r") as f:
-                schema = json.load(f)
-        except FileNotFoundError:
-            return None
+        schema = self.get_table_schema(table_name)
         # Find field that has the 'PrimaryKey' set to 'True'
         primary_key = None
         primary_key_count = 0
@@ -56,6 +50,18 @@ class DatabaseBase(ABC):
         if primary_key_count > 1:
             raise ValueError(f"Table '{table_name}' has more than one primary key.")
         return primary_key
+
+    @cache
+    def get_table_schema(self, table_name: str):
+        schema_filename = (
+            Path(self.data_folder).parent / "schemas" / f"{table_name}.schema.json"
+        )
+        try:
+            with open(schema_filename, "r") as f:
+                schema = json.load(f)
+        except FileNotFoundError:
+            return None
+        return schema
 
     @abstractmethod
     def get_tables_list(self):

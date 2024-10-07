@@ -1,3 +1,4 @@
+from unittest.mock import patch
 from InsightBoard.pages.upload import (
     update_filename,
     update_page_size,
@@ -70,16 +71,28 @@ def test_update_table():
         },
     ]
 
+    project = "project"
     options = ["table1", "table2"]
     unique_table_id = "project-table1"
     edited_datasets = [table1, table2]
     parsed_datasets = edited_datasets
 
+    # Mock clean_dataset
+    def _clean_dataset(data, *args, **kwargs):
+        return data  # passthrough
+
     # Return table1
     selected_table = "table1"
-    columns, data = update_table(
-        options, selected_table, unique_table_id, edited_datasets, parsed_datasets
-    )
+    with patch("InsightBoard.pages.upload.clean_dataset") as mock_clean_dataset:
+        mock_clean_dataset.side_effect = _clean_dataset
+        columns, data = update_table(
+            options,
+            selected_table,
+            unique_table_id,
+            project,
+            edited_datasets,
+            parsed_datasets,
+        )
     # Compare columns
     for col, expected_column in zip(columns, expected_columns):
         assert col.keys() == expected_column.keys()
@@ -90,9 +103,16 @@ def test_update_table():
 
     # Return table2
     selected_table = "table2"
-    columns, data = update_table(
-        options, selected_table, unique_table_id, edited_datasets, parsed_datasets
-    )
+    with patch("InsightBoard.pages.upload.clean_dataset") as mock_clean_dataset:
+        mock_clean_dataset.side_effect = _clean_dataset
+        columns, data = update_table(
+            options,
+            selected_table,
+            unique_table_id,
+            project,
+            edited_datasets,
+            parsed_datasets,
+        )
     # Compare columns
     for col, expected_column in zip(columns, expected_columns):
         assert col.keys() == expected_column.keys()

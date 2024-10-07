@@ -1,10 +1,13 @@
+import io
+import json
+import base64
 import pandas as pd
 
-import json
 from pathlib import Path
 
 from InsightBoard.database import Database, DatabaseBackend
 from InsightBoard.config import ConfigManager
+from InsightBoard import utils
 
 
 def get_projects_folder():
@@ -129,3 +132,24 @@ class Project:
             )
         datasets = [d for d in project_datasets if d["label"] in datasets]
         return [pd.read_parquet(f"{d['filename']}") for d in datasets]
+
+    def load_and_parse(self, filename, contents, selected_parser):
+        content_type, content_string = contents.split(",")
+        decoded = base64.b64decode(content_string)
+        ext = filename.split(".")[-1].lower()
+        if ext == "csv":
+            raw_df = pd.read_csv(io.StringIO(decoded.decode("utf-8")))
+        elif ext == "xlsx":
+            raw_df = pd.read_excel(io.BytesIO(decoded))
+        else:
+            return "Unsupported file type.", None, [], "", ""
+
+        # Parse the data using the selected parser
+        parsers_folder = self.get_parsers_folder()
+        parser_module = utils.load_module(
+            selected_parser, f"{parsers_folder}/{selected_parser}.py"
+        )
+        parsed_df_list = parser_module.parse(raw_df)
+        if not isinstance(parsed_df_list, list):
+            parsed_df_list = [parsed_df_list]
+        return parsed_df_list

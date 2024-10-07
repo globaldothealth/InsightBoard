@@ -1,6 +1,4 @@
-import io
 import dash
-import base64
 import pandas as pd
 import dash_bootstrap_components as dbc
 import logging
@@ -230,6 +228,17 @@ def update_page_size(page_size):
     return page_size
 
 
+def ensure_schema_ordering(columns, project, table):
+    try:
+        projectObj = utils.get_project(project)
+        schema = projectObj.database.get_table_schema(table)
+        schema_order = list(schema["properties"].keys())
+        columns = sorted(columns, key=lambda x: schema_order.index(x["id"]))
+    except Exception as e:
+        logging.info(f"Error in ensure_schema_ordering: {str(e)}")
+    return columns
+
+
 # When a table name is selected from the dropdown, update the DataTable display
 @callback(
     Output("editable-table", "columns"),  # Update DataTable
@@ -237,11 +246,12 @@ def update_page_size(page_size):
     Input("imported-tables-dropdown", "options"),  # Triggered by 'table' selection ...
     Input("imported-tables-dropdown", "value"),
     Input("unique-table-id", "data"),
+    State("project", "data"),
     State("edited-data-store", "data"),  # Populate with table from edited-data store
     State("parsed-data-store", "data"),
 )
 def update_table(
-    options, selected_table, unique_table_id, edited_datasets, parsed_datasets
+    options, selected_table, unique_table_id, project, edited_datasets, parsed_datasets
 ):
     # Callback is triggered before edited_datasets is populated on first run
     datasets = edited_datasets
@@ -253,9 +263,10 @@ def update_table(
     data = datasets[options.index(selected_table)]
 
     # Convert any lists to strings for display
-    data = clean_dataset(data, lists_to_strings=True)
-
-    columns = [{"name": col, "id": col, "editable": True} for col in data[0].keys()]
+    data = clean_dataset(data, project, selected_table, lists_to_strings=True)
+    keys = next(iter(data)).keys()
+    columns = [{"name": col, "id": col, "editable": True} for col in keys]
+    columns = ensure_schema_ordering(columns, project, selected_table)
 
     # Prepend non-editable 'Row' column
     columns.insert(0, {"name": "Row", "id": "Row", "editable": False})
@@ -275,66 +286,75 @@ def remove_quotes(x):
 
 
 # Utility function to clean data values, coercing to target type if specified
-def clean_value(x, target_type=None):
-    if target_type:
+def clean_value(x, key_name=None, dtypes={}):
+    """Clean a value, coercing to target type if specified.
+
+    Params:
+        x (str): The value to clean.
+        key_name (str): The key name of the value in the dataset.
+        dtypes (dict): A dictionary of key names and target types.
+    """
+    target_types = dtypes.get(key_name, {}).get("type", None)
+    if target_types:
+        ...
         # Coerce to target type
-        try:
-            return pd.Series([x]).astype(target_type).values[0]
-        except Exception:
-            pass
-    else:
-        # Strip whitespace
-        try:
-            x = x.strip()
-        except Exception:
-            pass
-        # Empty cell (string to None)
-        if x == "":
-            return None
-        # Boolean
-        try:
-            if x.lower() in ["true", "false"]:
-                return x.lower() == "true"
-        except Exception:
-            pass
-        # Arrays
-        try:
-            if x.startswith("[") and x.endswith("]"):
-                return list(map(remove_quotes, map(clean_value, x[1:-1].split(","))))
-        except Exception:
-            pass
-        # Arrays
-        try:
-            if isinstance(x, str) and "," in x:
-                return list(map(remove_quotes, map(clean_value, x.split(","))))
-        except Exception:
-            pass
-        # To number (float or int)
-        try:
-            if "." in x:
-                return float(x)
-            else:
-                return int(x)
-        except Exception:
-            pass
+        # try:
+        #     # This coercion is slow and only takes the first element in the list;
+        #     # skip for now.
+        #     raise Exception("Forcing error to skip this block")
+
+        #     # 'target_types' contains a list, e.g. ['string', 'null']
+        #     return next(iter(pd.Series([x]).astype(target_types[0]).values))
+        # except Exception:
+        #     pass
+
+    # Strip whitespace
+    try:
+        x = x.strip()
+    except Exception:
+        pass
+    # Empty cell (string to None)
+    if x == "":
+        return None
+    # Boolean
+    try:
+        if x.lower() in ["true", "false"]:
+            return x.lower() == "true"
+    except Exception:
+        pass
+    # Arrays
+    try:
+        if x.startswith("[") and x.endswith("]"):
+            return list(map(remove_quotes, map(clean_value, x[1:-1].split(","))))
+    except Exception:
+        pass
+    # Arrays
+    try:
+        if isinstance(x, str) and "," in x:
+            return list(map(remove_quotes, map(clean_value, x.split(","))))
+    except Exception:
+        pass
+    # To number (float or int)
+    try:
+        if "." in x:
+            return float(x)
+        else:
+            return int(x)
+    except Exception:
+        pass
     return x
 
 
 # Utility function to clean a dataset
-def clean_dataset(dataset, lists_to_strings=True):
+def clean_dataset(dataset, project, selected_table, lists_to_strings=True):
+    projectObj = utils.get_project(project)
+    schema = projectObj.database.get_table_schema(selected_table)
     for row in dataset:
         for k, v in row.items():
-            row[k] = clean_value(v)
+            row[k] = clean_value(v, k, schema["properties"])
             if lists_to_strings and isinstance(row[k], list):
                 row[k] = "[" + ", ".join([x for x in row[k] if x]) + "]"
     return dataset
-
-
-# Utility function to clean multiple datasets in one call
-def clean_datasets(datasets, *args, **kwargs):
-    for idx, dataset in enumerate(datasets):
-        datasets[idx] = clean_dataset(dataset, *args, **kwargs)
-    return datasets
 
 
 # When edits are made in the DataTable, update the edited-data-store
@@ -342,12 +362,13 @@ def clean_datasets(datasets, *args, **kwargs):
     Output("edited-data-store", "data"),  # Update the edited data store
     Input("parsed-data-store", "data"),  # Triggered by new 'parsed data' ...
     Input("editable-table", "data"),  # ... or DataTable edits
+    State("project", "data"),
     State("imported-tables-dropdown", "options"),
     State("imported-tables-dropdown", "value"),
     State("edited-data-store", "data"),
 )
 def update_edited_data(
-    parsed_data, edited_table_data, tables, selected_table, datasets
+    parsed_data, edited_table_data, project, tables, selected_table, datasets
 ):
     ctx = dash.callback_context
     trig_parsed_data_store = ctx_trigger(ctx, "parsed-data-store.data")
@@ -364,7 +385,9 @@ def update_edited_data(
     for row in edited_table_data:
         row.pop("Row", None)
     # Clean data
-    edited_table_data = clean_datasets([edited_table_data], lists_to_strings=True)[0]
+    edited_table_data = clean_dataset(
+        edited_table_data, project, selected_table, lists_to_strings=True
+    )
     new_edited_data_store[tables.index(selected_table)] = edited_table_data
     return new_edited_data_store
 
@@ -397,7 +420,10 @@ def errorlist_to_sentence(errorlist: []) -> str:
 def errors_to_dict(errors):
     return [
         [
-            {"path": str(x.path[0] if x.path else ""), "message": str(x.message)}
+            {
+                "path": str(next(iter(x.path)) if x.path else ""),
+                "message": str(x.message),
+            }
             for x in error
         ]
         for error in errors
@@ -425,8 +451,7 @@ def validate_errors(
     selected_table_index = parsed_dbs.index(selected_table)
     table_name = parsed_dbs[selected_table_index]
     df_dict = parsed_dbs_dict[selected_table_index]
-
-    df_dict = clean_dataset(df_dict, lists_to_strings=False)
+    df_dict = clean_dataset(df_dict, project, selected_table, lists_to_strings=False)
     df = pd.DataFrame.from_records(df_dict)
 
     # Ensure that base schema file exists
@@ -647,25 +672,10 @@ def parse_data(project, contents, filename, selected_parser):
         )
 
     # Process the uploaded file
-    content_type, content_string = contents.split(",")
-    decoded = base64.b64decode(content_string)
     try:
-        ext = filename.split(".")[-1].lower()
-        if ext == "csv":
-            raw_df = pd.read_csv(io.StringIO(decoded.decode("utf-8")))
-        elif ext == "xlsx":
-            raw_df = pd.read_excel(io.BytesIO(decoded))
-        else:
-            return "Unsupported file type.", None, [], "", ""
+        projectObj = utils.get_project(project)
+        parsed_df_list = projectObj.load_and_parse(filename, contents, selected_parser)
 
-        # Parse the data using the selected parser
-        parsers_folder = projectObj.get_parsers_folder()
-        parser_module = utils.load_module(
-            selected_parser, f"{parsers_folder}/{selected_parser}.py"
-        )
-        parsed_df_list = parser_module.parse(raw_df)
-        if not isinstance(parsed_df_list, list):
-            parsed_df_list = [parsed_df_list]
         parsed_dbs = [d["database"] for d in parsed_df_list]
         parsed_dfs = [d["data"] for d in parsed_df_list]
 
@@ -673,14 +683,18 @@ def parse_data(project, contents, filename, selected_parser):
         parsed_dbs_dict = [df.to_dict("records") for df in parsed_dfs]
 
         # Clean data for datatables
-        parsed_dbs_dict = clean_datasets(parsed_dbs_dict, lists_to_strings=True)
+        for i, table in enumerate(parsed_dbs_dict):
+            parsed_dbs_dict[i] = clean_dataset(
+                table, project, parsed_dbs[i], lists_to_strings=True
+            )
+        table_name = next(iter(parsed_dbs))
 
         return (
             f"File '{filename}' uploaded successfully.",
             parsed_dbs_dict,
             parsed_dbs,
-            parsed_dbs[0],
-            f"{project}-{parsed_dbs[0]}",
+            table_name,
+            f"{project}-{table_name}",
         )
 
     except Exception as e:
@@ -721,7 +735,8 @@ def highlight_and_tooltip_changes(
         },
     ]
     tooltip_data = [{} for _ in range(start_idx)]
-    data_cols = [k for k in data[0].keys() if k != "Row"]
+    keys = next(iter(data)).keys()
+    data_cols = [k for k in keys if k != "Row"]
 
     # Iterate over each row in the modified data
     try:
