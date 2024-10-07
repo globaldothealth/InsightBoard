@@ -278,59 +278,88 @@ def remove_quotes(x):
 def clean_value(x, key_name=None, dtypes={}):
     """Clean a value, coercing to target type if specified.
 
+    The DataTable accepts mainly strings, so this function attempts to
+    coerce the value to the target type specified in the schema. If the value
+    cannot be coerced, it is returned as a string.
+
     Params:
         x (str): The value to clean.
         key_name (str): The key name of the value in the dataset.
         dtypes (dict): A dictionary of key names and target types.
+               (list): A list of target types.
+               "any": Any type is allowed.
     """
-    target_types = dtypes.get(key_name, {}).get("type", None)
-    if target_types:
-        ...
-        # Coerce to target type
-        # try:
-        #     # This coercion is slow and only takes the first element in the list;
-        #     # skip for now.
-        #     raise Exception("Forcing error to skip this block")
 
-        #     # 'target_types' contains a list, e.g. ['string', 'null']
-        #     return next(iter(pd.Series([x]).astype(target_types[0]).values))
-        # except Exception:
-        #     pass
+    # Target type can be not specified if, e.g. enum or 'Rows' column
+    if isinstance(dtypes, str) and dtypes == "any":
+        target_types = [
+            "string",
+            "number",
+            "integer",
+            "boolean",
+            "array",
+            "object",
+            "null",
+        ]
+    elif isinstance(dtypes, dict):
+        target_types = dtypes.get(key_name, {}).get("type", None)
+        if not isinstance(target_types, list):
+            target_types = [target_types]
+    elif isinstance(dtypes, list):
+        target_types = dtypes
+    else:
+        target_types = []
 
-    # Strip whitespace
-    try:
+    # String pre-processing
+    if isinstance(x, str):
         x = x.strip()
-    except Exception:
-        pass
-    # Empty cell (string to None)
-    if x == "":
-        return None
-    # Boolean
-    try:
-        if x.lower() in ["true", "false"]:
-            return x.lower() == "true"
-    except Exception:
-        pass
-    # Arrays
-    try:
+
+    if "array" in target_types and isinstance(x, str):
         if x.startswith("[") and x.endswith("]"):
-            return list(map(remove_quotes, map(clean_value, x[1:-1].split(","))))
-    except Exception:
-        pass
-    # Arrays
-    try:
-        if isinstance(x, str) and "," in x:
-            return list(map(remove_quotes, map(clean_value, x.split(","))))
-    except Exception:
-        pass
-    # To number (float or int)
-    try:
-        if "." in x:
-            return float(x)
-        else:
+            return list(
+                map(
+                    remove_quotes,
+                    map(lambda x: clean_value(x, None, "any"), x[1:-1].split(",")),
+                )
+            )
+        elif isinstance(x, str) and "," in x:
+            return list(
+                map(
+                    remove_quotes,
+                    map(lambda x: clean_value(x, None, "any"), x.split(",")),
+                )
+            )
+
+    if "number" in target_types and isinstance(x, str):
+        try:
+            if "." in x:
+                return float(x)
+            else:
+                return int(x)
+        except Exception:
+            pass
+
+    if "integer" in target_types and isinstance(x, str):
+        try:
             return int(x)
-    except Exception:
-        pass
+        except Exception:
+            pass
+
+    if "boolean" in target_types and isinstance(x, str):
+        try:
+            if x.lower() in ["true", "false"]:
+                return x.lower() == "true"
+        except Exception:
+            pass
+
+    if "object" in target_types:
+        # Object is a valid json schema type, but not supported by DataTable
+        ...
+
+    if "null" in target_types and not x:
+        return None
+
+    # Return the original value if no coercion can be applied
     return x
 
 

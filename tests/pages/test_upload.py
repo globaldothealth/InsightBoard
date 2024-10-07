@@ -131,17 +131,24 @@ def test_remove_quotes():
 
 
 def test_clean_value():
-    assert clean_value("1") == 1
-    assert clean_value("1.0") == 1.0
-    assert clean_value("1.1") == 1.1
+    number_type = ["k", {"k": {"type": "number"}}]
+    integer_type = ["k", {"k": {"type": "integer"}}]
+    array_type = ["k", {"k": {"type": "array"}}]
+    assert clean_value("1") == "1"
+    assert clean_value("1", *number_type) == 1
+    assert clean_value("1", *integer_type) == 1
+    assert clean_value("1.0") == "1.0"
+    assert clean_value("1", *number_type) == 1.0
     assert clean_value("1.1.1") == "1.1.1"
-    assert clean_value("[1, 2, 3]") == [1, 2, 3]
-    assert clean_value("[1]") == [1]
-    assert clean_value("[a]") == ["a"]
-    assert clean_value("[a, b, c]") == ["a", "b", "c"]
-    assert clean_value('["a", "b", "c"]') == ["a", "b", "c"]
-    assert clean_value("'a', 'b', 'c'") == ["a", "b", "c"]
-    assert clean_value("a, b, c") == ["a", "b", "c"]
+    assert clean_value("[1, 2, 3]", *array_type) == [1, 2, 3]
+    assert clean_value("[1]") == "[1]"
+    assert clean_value("[1]", *array_type) == [1]
+    assert clean_value("[a]") == "[a]"
+    assert clean_value("[a]", *array_type) == ["a"]
+    assert clean_value("[a, b, c]", *array_type) == ["a", "b", "c"]
+    assert clean_value('["a", "b", "c"]', *array_type) == ["a", "b", "c"]
+    assert clean_value("'a', 'b', 'c'", *array_type) == ["a", "b", "c"]
+    assert clean_value("a, b, c", *array_type) == ["a", "b", "c"]
 
 
 def test_update_edited_data():
