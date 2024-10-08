@@ -16,9 +16,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - uses: nanasess/setup-chromedriver@v2
-        with:
-          chromedriver-version: '129.0.6668.89'
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
@@ -30,7 +27,10 @@ jobs:
       - name: Run tests
         run: |
           uv sync --all-extras
-          uv run pytest --cov=InsightBoard --cov-report=html tests/
+          uv sync --dev
+          uv pip install "adtl[parquet] @ git+https://github.com/globaldothealth/adtl"
+          uv run pytest --cov=InsightBoard --cov-report=html tests/unit
+          uv run pytest tests/system
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         if: ${{ matrix.os == 'ubuntu-latest' }}
