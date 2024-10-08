@@ -38,7 +38,7 @@ def test_update_filename_empty():
 def test_update_page_size():
     # passthrough
     for page_size in ["10", "20", "50", "100"]:
-        assert page_size == update_page_size(page_size)
+        assert page_size == update_page_size(page_size, None)
 
 
 def test_update_table():

@@ -54,6 +54,7 @@ def layout():
                                     {"label": "250", "value": 250},
                                     {"label": "500", "value": 500},
                                     {"label": "1000", "value": 1000},
+                                    {"label": "All", "value": -1},
                                 ],
                                 value=25,
                                 clearable=False,
@@ -78,8 +79,14 @@ def layout():
 
 
 # Callback to update the page size of the DataTable based on dropdown selection
-@callback(Output("datatable-table", "page_size"), Input("rows-dropdown", "value"))
-def update_page_size(page_size):
+@callback(
+    Output("datatable-table", "page_size"),
+    Input("rows-dropdown", "value"),
+    State("datatable-table", "data"),
+)
+def update_page_size(page_size, data):
+    if page_size == -1:
+        return len(data)
     return page_size
 
 

@@ -127,6 +127,7 @@ def layout():
                             {"label": "250", "value": 250},
                             {"label": "500", "value": 500},
                             {"label": "1000", "value": 1000},
+                            {"label": "All", "value": -1},
                         ],
                         value=25,
                         clearable=False,
@@ -225,9 +226,13 @@ def update_show_full_validation_log(value):
 @callback(
     Output("editable-table", "page_size"),  # Update the DataTable page size
     Input("rows-dropdown", "value"),  # Triggered by 'rows per page' dropdown
+    State("editable-table", "data"),
 )
-def update_page_size(page_size):
+def update_page_size(page_size, data):
+    if page_size == -1:
+        return len(data)
     return page_size
+
 
 
 # When a table name is selected from the dropdown, update the DataTable display
