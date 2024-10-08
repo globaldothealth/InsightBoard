@@ -29,6 +29,8 @@ build-backend = "setuptools.build_meta"
 [tool.uv]
 package = true
 dev-dependencies = [
+    "chromedriver-py>=129.0.6668.89",
     "pytest-cov>=5.0.0",
     "pytest>=8.3.3",
+    "selenium>=4.25.0",
 ]

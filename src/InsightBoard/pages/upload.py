@@ -210,12 +210,22 @@ def update_parser_dropdown(project):
 # Display selected data file to user
 @callback(
     Output("upload-data-filename", "children"),  # Update the filename display
+    Output("upload-data", "style"),
     Input("upload-data", "filename"),  # Triggered by file selection
+    State("upload-data", "style"),
 )
-def update_filename(filename):
+def update_filename(filename, style):
     if filename:
-        return f"Selected file: {filename}"
-    return "Select a data file"
+        update_styles = {
+            "borderStyle": "solid",
+            "borderWidth": "2px",
+        }
+        return f"Selected file: {filename}", {**style, **update_styles}
+    update_styles = {
+        "borderStyle": "dashed",
+        "borderWidth": "1px",
+    }
+    return "Select a data file", {**style, **update_styles}
 
 
 # Update state when settings are changed: Only Show Validation Errors

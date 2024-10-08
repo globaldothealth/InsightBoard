@@ -25,14 +25,18 @@ from InsightBoard.pages.upload import (
 
 def test_update_filename():
     filename = "test.csv"
-    msg = update_filename(filename)
+    style = {}
+    msg, new_style = update_filename(filename, style)
     assert msg == f"Selected file: {filename}"
+    assert new_style.get("borderStyle", None) == "solid"
 
 
 def test_update_filename_empty():
     filename = ""
-    msg = update_filename(filename)
+    style = {}
+    msg, new_style = update_filename(filename, style)
     assert msg == "Select a data file"
+    assert new_style.get("borderStyle", None) == "dashed"
 
 
 def test_update_page_size():

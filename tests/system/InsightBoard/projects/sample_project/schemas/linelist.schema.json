@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "Case ID": {
+      "type": "integer",
+      "description": "Unique identifier for each case",
+      "PrimaryKey": true
+    },
+    "Age": {
+      "type": "integer",
+      "description": "Age of the patient",
+      "minimum": 0
+    },
+    "Gender": {
+      "type": "string",
+      "description": "Gender of the patient",
+      "enum": ["Male", "Female", "Other"]
+    },
+    "Location": {
+      "type": "string",
+      "description": "City or region where the case was reported"
+    },
+    "Date of Onset": {
+      "type": "string",
+      "format": "date",
+      "description": "Date when symptoms first appeared"
+    },
+    "Symptoms": {
+      "type": ["array", "null"],
+      "description": "List of symptoms exhibited by the patient",
+      "items": {
+        "type": "string"
+      }
+    },
+    "Outcome": {
+      "type": ["string", "null"],
+      "description": "Final outcome for the patient (recovered or deceased)",
+      "enum": ["Recovered", "Deceased", null]
+    },
+    "Vaccination Status": {
+      "type": ["string", "null"],
+      "description": "Vaccination status of the patient",
+      "enum": ["Yes", "No", "Partial", "Unknown"]
+    },
+    "Days to Recovery": {
+      "type": ["integer", "null"],
+      "description": "Number of days to recover, null for deceased cases"
+    },
+    "Underlying Conditions": {
+      "type": ["string", "null"],
+      "description": "Pre-existing health conditions of the patient",
+      "enum": ["None", "Asthma", "Diabetes", "Hypertension", "Heart Disease", "Chronic Lung Disease", "Chronic Kidney Disease", null]
+    }
+  },
+  "required": ["Case ID", "Age", "Gender", "Location", "Date of Onset"],
+  "additionalProperties": false
+}
