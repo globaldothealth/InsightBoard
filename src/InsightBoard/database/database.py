@@ -119,13 +119,13 @@ class DatabaseParquet(DatabaseBase):
         # Check if the Parquet file exists, and append the data
         file_path = Path(self.data_folder) / f"{table_name}.parquet"
         file_path.parent.mkdir(parents=True, exist_ok=True)
-        try:
+        if file_path.exists():
             current_df = pq.read_table(file_path).to_pandas()
             primary_key = self.get_primary_key(table_name)
             if primary_key:
                 current_df = current_df[~current_df[primary_key].isin(df[primary_key])]
             combined_df = pd.concat([current_df, df], ignore_index=True)
-        except FileNotFoundError:
+        else:
             combined_df = df
         # Write the updated DataFrame to the Parquet file
         table = Table.from_pandas(combined_df)
