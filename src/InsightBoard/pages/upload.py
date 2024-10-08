@@ -5,6 +5,7 @@ import dash_bootstrap_components as dbc
 import logging
 
 from pathlib import Path
+from datetime import datetime
 from dash import dcc, html, dash_table, Input, Output, State, callback
 
 import InsightBoard.utils as utils
@@ -856,13 +857,17 @@ def update_table_style_and_validate(
     Output("download-csv", "data"),  # Download the CSV file
     Input("download-button", "n_clicks"),  # Triggered by 'Download as CSV' button
     State("editable-table", "data"),
+    State("imported-tables-dropdown", "value"),
     prevent_initial_call=True,  # Only trigger when the button is clicked
 )
-def download_csv(n_clicks, data):
+def download_csv(n_clicks, data, table_name):
     if n_clicks > 0 and data:
         df = pd.DataFrame(data)
         df.drop(columns=["Row"], inplace=True)
-        return dcc.send_data_frame(df.to_csv, "modified_data.csv", index=False)
+        now = datetime.now()
+        datetime_str = now.strftime("%Y-%m-%d_%H-%M-%S")
+        filename = f"import_{table_name}_{datetime_str}.csv"
+        return dcc.send_data_frame(df.to_csv, filename, index=False)
 
 
 # Display a confirmation dialog when the commit button is clicked
