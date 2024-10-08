@@ -361,12 +361,15 @@ def clean_value(x, key_name=None, dtypes={}):
             except Exception:
                 pass
 
-    if "boolean" in target_types and isinstance(x, str):
-        try:
-            if x.lower() in ["true", "false"]:
-                return x.lower() == "true"
-        except Exception:
-            pass
+    if "boolean" in target_types:
+        if isinstance(x, bool):
+            return x
+        elif isinstance(x, str):
+            try:
+                if x.lower() in ["true", "false"]:
+                    return x.lower() == "true"
+            except Exception:
+                pass
 
     if "object" in target_types:
         # Object is a valid json schema type, but not supported by DataTable
