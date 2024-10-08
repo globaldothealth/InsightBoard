@@ -134,6 +134,7 @@ def test_clean_value():
     number_type = ["k", {"k": {"type": "number"}}]
     integer_type = ["k", {"k": {"type": "integer"}}]
     array_type = ["k", {"k": {"type": "array"}}]
+    number_or_null_type = ["k", {"k": {"type": ["number", "null"]}}]
     assert clean_value("1") == "1"
     assert clean_value("1", *number_type) == 1
     assert clean_value("1", *integer_type) == 1
@@ -149,6 +150,8 @@ def test_clean_value():
     assert clean_value('["a", "b", "c"]', *array_type) == ["a", "b", "c"]
     assert clean_value("'a', 'b', 'c'", *array_type) == ["a", "b", "c"]
     assert clean_value("a, b, c", *array_type) == ["a", "b", "c"]
+    assert clean_value("0", *number_or_null_type) == 0
+    assert clean_value(0, *number_or_null_type) == 0
 
 
 def test_update_edited_data():

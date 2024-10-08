@@ -332,23 +332,29 @@ def clean_value(x, key_name=None, dtypes={}):
                 )
             )
 
-    if "number" in target_types and isinstance(x, str):
-        try:
-            if "." in x:
-                n = float(x)
-                if math.isnan(n):
-                    return None
-            else:
-                n = int(x)
-            return n
-        except Exception:
-            pass
+    if "number" in target_types:
+        if isinstance(x, int) or isinstance(x, float):
+            return x
+        elif isinstance(x, str):
+            try:
+                if "." in x:
+                    n = float(x)
+                    if math.isnan(n):
+                        return None
+                else:
+                    n = int(x)
+                return n
+            except Exception:
+                pass
 
-    if "integer" in target_types and isinstance(x, str):
-        try:
-            return int(x)  # int cannot be nan
-        except Exception:
-            pass
+    if "integer" in target_types:
+        if isinstance(x, int):
+            return x
+        elif isinstance(x, str):
+            try:
+                return int(x)  # int cannot be nan
+            except Exception:
+                pass
 
     if "boolean" in target_types and isinstance(x, str):
         try:
