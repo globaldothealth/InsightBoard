@@ -30,6 +30,10 @@ jobs:
           uv run pytest --cov=InsightBoard --cov-report=html tests/
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
+        if: ${{ matrix.os == 'ubuntu-latest' }}
         with:
           name: coverage-report
-          path: htmlcov/
+          path: htmlcov
+      - name: Add coverage report to action summary
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: cat htmlcov/index.html > $GITHUB_STEP_SUMMARY
