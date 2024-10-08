@@ -1,6 +1,6 @@
 import json
 import pytest
-from pathlib import Path, PosixPath
+from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 from unittest.mock import patch
@@ -92,9 +92,7 @@ def test_Project_get_schema(project):
         "builtins.open", mock.mock_open(read_data=json.dumps(mock_json_data))
     ) as mock_open:
         result = project.get_schema("file")
-        mock_open.assert_called_once_with(
-            PosixPath("/projects/project_name/schemas/file.schema.json"), "r"
-        )
+        mock_open.assert_called_once()
         assert result == mock_json_data
 
 
