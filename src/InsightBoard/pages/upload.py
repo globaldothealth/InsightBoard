@@ -10,6 +10,10 @@ from dash import dcc, html, dash_table, Input, Output, State, callback
 
 import InsightBoard.utils as utils
 
+# DataTable supports a maximum of 512 conditional formatting rules,
+#  so stop adding rules after this limit is reached
+MAX_CONDITIONAL_FORMATTING = 512
+
 # Register the page
 dash.register_page(__name__, path="/upload")
 projectObj = None
@@ -849,15 +853,16 @@ def highlight_and_tooltip_changes(
             # Show validation errors per cell and show tooltip
             for error in errors:
                 if error["path"] in data_cols:
-                    style_data_conditional.append(
-                        {
-                            "if": {
-                                "filter_query": f"{{Row}} = {idx + 1}",
-                                "column_id": error["path"],
-                            },
-                            "border": "2px solid red",
-                        }
-                    )
+                    if len(style_data_conditional) <= MAX_CONDITIONAL_FORMATTING:
+                        style_data_conditional.append(
+                            {
+                                "if": {
+                                    "filter_query": f"{{Row}} = {idx + 1}",
+                                    "column_id": error["path"],
+                                },
+                                "border": "2px solid red",
+                            }
+                        )
                     row_tooltip[error["path"]] = {
                         "value": error["message"],
                         "type": "text",
@@ -868,16 +873,17 @@ def highlight_and_tooltip_changes(
                     original_value = original_data[idx].get(column, None)
                     modified_value = row.get(column, None)
                     if str(modified_value) != str(original_value):
-                        style_data_conditional.append(
-                            {
-                                "if": {
-                                    "filter_query": f"{{Row}} = {idx + 1}",
-                                    "column_id": column,
-                                },
-                                "backgroundColor": "#FFDDC1",
-                                "color": "black",
-                            }
-                        )
+                        if len(style_data_conditional) <= MAX_CONDITIONAL_FORMATTING:
+                            style_data_conditional.append(
+                                {
+                                    "if": {
+                                        "filter_query": f"{{Row}} = {idx + 1}",
+                                        "column_id": column,
+                                    },
+                                    "backgroundColor": "#FFDDC1",
+                                    "color": "black",
+                                }
+                            )
                         # Show original content as a tooltip
                         row_tooltip[column] = {
                             "value": f'Original: "{original_value}"',
