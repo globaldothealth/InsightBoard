@@ -76,6 +76,8 @@ def test_update_table():
     unique_table_id = "project-table1"
     edited_datasets = [table1, table2]
     parsed_datasets = edited_datasets
+    only_show_validation_errors = False
+    errors = []
 
     # Mock clean_dataset
     def _clean_dataset(data, *args, **kwargs):
@@ -89,9 +91,11 @@ def test_update_table():
             options,
             selected_table,
             unique_table_id,
+            only_show_validation_errors,
             project,
             edited_datasets,
             parsed_datasets,
+            errors,
         )
     # Compare columns
     for col, expected_column in zip(columns, expected_columns):
@@ -109,9 +113,11 @@ def test_update_table():
             options,
             selected_table,
             unique_table_id,
+            only_show_validation_errors,
             project,
             edited_datasets,
             parsed_datasets,
+            errors,
         )
     # Compare columns
     for col, expected_column in zip(columns, expected_columns):

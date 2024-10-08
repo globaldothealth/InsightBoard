@@ -25,6 +25,7 @@ def layout():
             dcc.Store(id="edited-data-store"),  # edited data (multi-table support)
             dcc.Store(id="validation-errors"),  # validation errors (current table)
             dcc.Store(id="validation-warnings"),  # validation warnings (current table)
+            dcc.Store(id="only-show-validation-errors"),  # Setting: Only show errors
             dcc.Store(id="show-full-validation-log"),  # Setting: Show full log
             # Page rendering
             html.H1("Upload data"),
@@ -163,6 +164,7 @@ def layout():
             dbc.Checklist(
                 id="upload-settings",
                 options=[
+                    {"label": "Only show validation errors", "value": 1},
                     {"label": "Show full validation log", "value": 2},
                 ],
                 value=[],  # list of 'value's are are 'on', e.g. [2]
@@ -213,6 +215,15 @@ def update_filename(filename):
     return "Select a data file"
 
 
+# Update state when settings are changed: Only Show Validation Errors
+@callback(
+    Output("only-show-validation-errors", "value"),  # Update 'only show errors' setting
+    Input("upload-settings", "value"),  # Triggered by settings switch changes
+)
+def update_only_show_errors(value):
+    return 1 in value
+
+
 # Update state when settings are changed: Show Full Validation Log
 @callback(
     Output("show-full-validation-log", "value"),  # Update the 'show full log' setting
@@ -242,12 +253,21 @@ def update_page_size(page_size, data):
     Input("imported-tables-dropdown", "options"),  # Triggered by 'table' selection ...
     Input("imported-tables-dropdown", "value"),
     Input("unique-table-id", "data"),
+    Input("only-show-validation-errors", "value"),
     State("project", "data"),
     State("edited-data-store", "data"),  # Populate with table from edited-data store
     State("parsed-data-store", "data"),
+    State("validation-errors", "data"),
 )
 def update_table(
-    options, selected_table, unique_table_id, project, edited_datasets, parsed_datasets
+    options,
+    selected_table,
+    unique_table_id,
+    only_show_validation_errors,
+    project,
+    edited_datasets,
+    parsed_datasets,
+    errors,
 ):
     # Callback is triggered before edited_datasets is populated on first run
     datasets = edited_datasets
@@ -268,6 +288,10 @@ def update_table(
     columns.insert(0, {"name": "Row", "id": "Row", "editable": False})
     for i, row in enumerate(data):
         row["Row"] = i + 1
+
+    # Filter showing only rows with errors
+    if only_show_validation_errors:
+        data = [row for row, error in zip(data, errors) if any(error)]
 
     return columns, data
 
@@ -407,25 +431,25 @@ def clean_dataset(dataset, project, selected_table, lists_to_strings=True):
 def update_edited_data(
     parsed_data, edited_table_data, project, tables, selected_table, datasets
 ):
-    ctx = dash.callback_context
-    trig_parsed_data_store = ctx_trigger(ctx, "parsed-data-store.data")
-    if trig_parsed_data_store:
-        # Parsed data has changed, so reset to the newly parsed data
-        new_edited_data_store = parsed_data
-    else:
-        # Otherwise, update to the latest table edits
-        new_edited_data_store = datasets
+    new_edited_data_store = parsed_data
     if not new_edited_data_store:
         return []
 
-    # Remove the 'Row' column before saving
+    # Merge full data with edited data based on Row number, then pop Row
+    full_edited_data = new_edited_data_store[tables.index(selected_table)]
     for row in edited_table_data:
+        row_idx = row.get("Row", None)
+        if row_idx:
+            full_edited_data[row_idx - 1] = row
         row.pop("Row", None)
+
     # Clean data
-    edited_table_data = clean_dataset(
-        edited_table_data, project, selected_table, lists_to_strings=True
+    clean_table_data = clean_dataset(
+        full_edited_data, project, selected_table, lists_to_strings=True
     )
-    new_edited_data_store[tables.index(selected_table)] = edited_table_data
+
+    # Replace dataset in the 'edited' data-store
+    new_edited_data_store[tables.index(selected_table)] = clean_table_data
     return new_edited_data_store
 
 
@@ -530,23 +554,27 @@ def validate_errors(
     Output("output-container", "children"),  # Update the validation log display
     Input("validation-errors", "data"),  # Triggered by any change in errors ...
     Input("validation-warnings", "data"),  # ... or table view
-    Input("parsed-data-store", "data"),
     Input("imported-tables-dropdown", "options"),
     Input("imported-tables-dropdown", "value"),
+    Input("only-show-validation-errors", "value"),
     Input("show-full-validation-log", "value"),
     Input("editable-table", "page_current"),
     Input("editable-table", "page_size"),
+    Input("editable-table", "data"),
+    State("parsed-data-store", "data"),
     State("project", "data"),
 )
 def validate_log(
     errors,
     warns,
-    parsed_dbs_dict,
-    parsed_dbs,
-    selected_table,
+    tables_list,
+    current_table,
+    only_show_validation_errors,
     show_full_validation_log,
     page_current,
     page_size,
+    editable_data,
+    parsed_dbs_dict,
     project,
 ):
     if not errors and not warns:
@@ -564,6 +592,11 @@ def validate_log(
         page_current = page_current or 0
         start_idx = page_current * page_size
         end_idx = (page_current + 1) * page_size
+        if only_show_validation_errors:
+            # Determine indices from visible data
+            visible_data = editable_data[start_idx:end_idx]
+            start_idx = visible_data[0]["Row"] - 1
+            end_idx = visible_data[-1]["Row"]
         errors = errors[start_idx:end_idx]
         parsed_errors = parsed_errors[start_idx:end_idx]
         comment.extend(
@@ -747,14 +780,19 @@ def parse_data(project, contents, filename, selected_parser):
 
 # Apply table highlights and tooltips to show changes
 def highlight_and_tooltip_changes(
-    original_data, data, page_current, page_size, validation_errors
+    original_data,
+    data,
+    page_current,
+    page_size,
+    validation_errors,
+    only_show_validation_errors,
 ):
     """Compare the original and edited data, highlight changes, and show tooltips."""
     if not page_size:
         return [], []
     page_current = page_current or 0
 
-    paginate = True
+    paginate = not only_show_validation_errors
     start_idx = page_current * page_size if paginate else 0
     end_idx = (page_current + 1) * page_size if paginate else len(data)
 
@@ -776,42 +814,66 @@ def highlight_and_tooltip_changes(
     keys = next(iter(data)).keys()
     data_cols = [k for k in keys if k != "Row"]
 
+    error_rows = []
+
     # Iterate over each row in the modified data
     try:
+        # Ensure rows with errors are highlighted before placing cell-level highlights
         for i, row in enumerate(data[start_idx:end_idx]):
             row_tooltip = {}  # Store tooltips for the row
-            errors = validation_errors[i + start_idx]
+            if only_show_validation_errors:
+                idx = row["Row"] - 1
+            else:
+                idx = i + start_idx
+            errors = validation_errors[idx]
             # First, check for validation errors and highlight row
             if any(errors):
-                style_data_conditional.append(
-                    {
-                        "if": {"row_index": i},
-                        "backgroundColor": "#FFCCCC",
-                        "color": "black",
-                    }
-                )
-                # Show validation errors per cell and show tooltip
-                for error in errors:
-                    if error["path"] in data_cols:
-                        style_data_conditional.append(
-                            {
-                                "if": {"row_index": i, "column_id": error["path"]},
-                                "border": "2px solid red",
-                            }
-                        )
-                        row_tooltip[error["path"]] = {
-                            "value": error["message"],
-                            "type": "text",
+                error_rows.append(idx + 1)
+        style_data_conditional.append(
+            {
+                "if": {
+                    "filter_query": " || ".join([f"{{Row}} = {k}" for k in error_rows]),
+                },
+                "backgroundColor": "#FFCCCC",
+                "color": "black",
+            }
+        )
+
+        for i, row in enumerate(data[start_idx:end_idx]):
+            row_tooltip = {}  # Store tooltips for the row
+            if only_show_validation_errors:
+                idx = row["Row"] - 1
+            else:
+                idx = i + start_idx
+            errors = validation_errors[idx]
+            # Show validation errors per cell and show tooltip
+            for error in errors:
+                if error["path"] in data_cols:
+                    style_data_conditional.append(
+                        {
+                            "if": {
+                                "filter_query": f"{{Row}} = {idx + 1}",
+                                "column_id": error["path"],
+                            },
+                            "border": "2px solid red",
                         }
+                    )
+                    row_tooltip[error["path"]] = {
+                        "value": error["message"],
+                        "type": "text",
+                    }
             else:
                 # Then, if the cell values differ, highlight and add a tooltip
                 for column in data_cols:
-                    original_value = original_data[i + start_idx].get(column, None)
+                    original_value = original_data[idx].get(column, None)
                     modified_value = row.get(column, None)
                     if str(modified_value) != str(original_value):
                         style_data_conditional.append(
                             {
-                                "if": {"row_index": i, "column_id": column},
+                                "if": {
+                                    "filter_query": f"{{Row}} = {idx + 1}",
+                                    "column_id": column,
+                                },
                                 "backgroundColor": "#FFDDC1",
                                 "color": "black",
                             }
@@ -839,6 +901,7 @@ def highlight_and_tooltip_changes(
     Input("editable-table", "page_current"),
     Input("editable-table", "page_size"),
     Input("validation-errors", "data"),  # ... or validation errors
+    Input("only-show-validation-errors", "value"),
     State("parsed-data-store", "data"),
     State("imported-tables-dropdown", "options"),
     State("imported-tables-dropdown", "value"),
@@ -848,6 +911,7 @@ def update_table_style_and_validate(
     page_current,
     page_size,
     validation_errors,
+    only_show_validation_errors,
     original_data,
     tables,
     selected_table,
@@ -860,7 +924,12 @@ def update_table_style_and_validate(
 
     # Highlight changes and create tooltips showing original data
     style_data_conditional, tooltip_data = highlight_and_tooltip_changes(
-        original_df, data, page_current, page_size, validation_errors
+        original_df,
+        data,
+        page_current,
+        page_size,
+        validation_errors,
+        only_show_validation_errors,
     )
 
     return style_data_conditional, tooltip_data
