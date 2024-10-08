@@ -31,8 +31,12 @@ def driver():
 
     # Override default project location
     config_file = Path.home() / ".insightboard" / "config.toml"
-    with open(config_file, "r") as f:
-        config = tomllib.loads(f.read())
+    try:
+        with open(config_file, "r") as f:
+            config = tomllib.loads(f.read())
+    except FileNotFoundError:
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+        config = {}
     new_config = {
         'project': {
             'folder': str(Path(__file__).parent / "InsightBoard" / "projects")
@@ -66,8 +70,9 @@ def driver():
 
     # Restore the InsightBoard config file and close chromedriver / Dash app
     driver.quit()
-    with open(config_file, "w") as f:
-        f.write(tomli_w.dumps(config))
+    if config:
+        with open(config_file, "w") as f:
+            f.write(tomli_w.dumps(config))
     process.kill()
     process.wait()
 
