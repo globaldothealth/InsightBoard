@@ -1,6 +1,7 @@
 import dash
 import dash_bootstrap_components as dbc
 
+from datetime import datetime
 from dash import dcc, html, dash_table
 from dash import Input, Output, State, callback
 
@@ -91,7 +92,9 @@ def download_table(n_clicks, selected_table):
     if not selected_table or n_clicks == 0:
         return None
 
-    filename = f"{selected_table}.csv"
+    now = datetime.now()
+    datetime_str = now.strftime("%Y-%m-%d_%H-%M-%S")
+    filename = f"{selected_table}_{datetime_str}.csv"
     df = projectObj.database.read_table(selected_table)
     return dcc.send_data_frame(df.to_csv, filename, index=False)
 

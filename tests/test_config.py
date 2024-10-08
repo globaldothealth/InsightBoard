@@ -100,20 +100,16 @@ def test_load_config__not_exists():
     assert config == {}
 
 
-def test_merge_configs():
-    ...
+def test_merge_configs(): ...
 
 
-def test_load_and_merge_config():
-    ...
+def test_load_and_merge_config(): ...
 
 
-def test_get_project_folder():
-    ...
+def test_get_project_folder(): ...
 
 
-def test_get_default_project():
-    ...
+def test_get_default_project(): ...
 
 
 def test_set_simple_key():
@@ -145,7 +141,7 @@ def test_set_add_to_existing_nested_key():
 def test_set_deeply_nested_key():
     manager = ConfigManager()
     manager.set("a.b.c.d.e", "value")
-    assert manager.config.get('a', None) == {"b": {"c": {"d": {"e": "value"}}}}
+    assert manager.config.get("a", None) == {"b": {"c": {"d": {"e": "value"}}}}
 
 
 def test_save():
@@ -155,8 +151,8 @@ def test_save():
     config_manager.config_file = "dummy_file.toml"
     config_manager.config = config
     with (
-        mock.patch('builtins.open', mock_open),
-        mock.patch('tomli_w.dump') as mock_tomli_w_dump,
+        mock.patch("builtins.open", mock_open),
+        mock.patch("tomli_w.dump") as mock_tomli_w_dump,
     ):
         config_manager.save()
         mock_open.assert_called_once_with("dummy_file.toml", "wb")

@@ -55,8 +55,8 @@ def test_adtl_check_parser_fail():
 
 
 @pytest.mark.skipif(
-    sys.platform.startswith('win'),
-    reason="File access permissions error on Windows (investigate)"
+    sys.platform.startswith("win"),
+    reason="File access permissions error on Windows (investigate)",
 )
 def test_adtl():
     class mock_Result:
@@ -98,8 +98,8 @@ class mock_adtl_parser:
 
 
 @pytest.mark.skipif(
-    sys.platform.startswith('win'),
-    reason="File access permissions error on Windows (investigate)"
+    sys.platform.startswith("win"),
+    reason="File access permissions error on Windows (investigate)",
 )
 @patch("InsightBoard.parsers.adtl_parser", mock_adtl_parser)
 def test_parse_adtl__str():
@@ -114,8 +114,8 @@ def test_parse_adtl__str():
 
 
 @pytest.mark.skipif(
-    sys.platform.startswith('win'),
-    reason="File access permissions error on Windows (investigate)"
+    sys.platform.startswith("win"),
+    reason="File access permissions error on Windows (investigate)",
 )
 @patch("InsightBoard.parsers.adtl_parser", mock_adtl_parser)
 def test_parse_adtl__list():
