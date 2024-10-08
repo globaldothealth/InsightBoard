@@ -83,6 +83,7 @@ def select_project(driver, project_name):
     option_to_select = driver.find_element(By.XPATH, f'//div[text()="{project_name}"]')
     option_to_select.click()
     # assert that the project is selected
+    time.sleep(1)
     assert dropdown.text == project_name
 
 
@@ -92,6 +93,7 @@ def page_upload(driver):
     )
     upload_link.click()
     # assert that the upload page is loaded
+    time.sleep(1)
     assert driver.find_element(By.TAG_NAME, "h1").text == "Upload data"
     return PageUpload(driver)
 
@@ -115,6 +117,7 @@ class PageUpload:
             By.XPATH, f'//div[text()="{parser_name}"]'
         )
         option_to_select.click()
+        time.sleep(1)
         assert dropdown.text == parser_name
 
     def select_data_file(self, file_path):
