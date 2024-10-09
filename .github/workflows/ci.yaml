@@ -36,6 +36,7 @@ jobs:
           uv run pytest tests/system
       - name: Return screenshot (on system test failure)
         if: failure()
+        shell: bash
         run: |
           # Check if screenshot exists, then convert to base64 and embed in summary
           if [ -f screenshot.png ]; then

@@ -22,6 +22,12 @@ def chromedriver_present():
     return True
 
 
+def save_screenshot(driver, name="screenshot"):
+    screenshot_path = Path(f"{name}.png")
+    driver.save_screenshot(screenshot_path)
+    return str(screenshot_path)
+
+
 @pytest.fixture
 def driver():
     service = Service(binary_path)
@@ -145,3 +151,14 @@ class PageUpload:
             )
         )
         checkbox.click()
+
+    def check_DataTable_row_count(self, count):
+        timeout = 30
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            rows = self.datatable_rows()
+            if len(rows) == count:
+                break
+            time.sleep(1)
+        else:
+            assert False, f"Expected {count} rows in DataTable, but got {len(rows)}."
