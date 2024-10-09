@@ -39,7 +39,7 @@ jobs:
         run: |
           # Check if screenshot exists, then convert to base64 and embed in summary
           if [ -f screenshot.png ]; then
-            base64 -w 0 screenshot.png > screenshot_base64.txt
+            python -c "import base64; print(base64.b64encode(open('screenshot.png', 'rb').read()).decode('utf-8'))" > screenshot_base64.txt
             echo "### Screenshot of Failed Test" >> $GITHUB_STEP_SUMMARY
             echo '<img src="data:image/png;base64,'$(cat screenshot_base64.txt)'" alt="Screenshot"/>' >> $GITHUB_STEP_SUMMARY
           fi
@@ -51,4 +51,4 @@ jobs:
           path: htmlcov
       - name: Add coverage report to action summary
         if: ${{ matrix.os == 'ubuntu-latest' }}
-        run: cat htmlcov/index.html > $GITHUB_STEP_SUMMARY
+        run: cat htmlcov/index.html >> $GITHUB_STEP_SUMMARY
