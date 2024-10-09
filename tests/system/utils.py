@@ -1,9 +1,9 @@
 import time
 import pytest
-import subprocess
 import tomllib
 import tomli_w
 
+import InsightBoard
 
 from pathlib import Path
 from selenium import webdriver
@@ -45,17 +45,11 @@ def driver():
     with open(config_file, "w") as f:
         f.write(tomli_w.dumps(new_config))
 
-    # Launch the Dash app in a separate thread
-    port = 8050
-    cmd = [
-        "waitress-serve",
-        f"--listen=0.0.0.0:{port}",
-        "InsightBoard.app:server",
-    ]
-    process = subprocess.Popen(cmd)
-    time.sleep(5)
+    # Launch InsightBoard and wait for server to start
+    process = InsightBoard.launch_app()
+    InsightBoard.wait_for_server()
 
-    # Wait for dashboard to load
+    # Open the Dash app in the browser
     driver.get("http://127.0.0.1:8050")
     for _ in range(10):
         try:
