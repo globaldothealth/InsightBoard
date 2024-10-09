@@ -53,6 +53,7 @@ def driver():
         *["--bind", f"0.0.0.0:{port}"],
     ]
     process = subprocess.Popen(cmd)
+    time.sleep(5)
 
     # Wait for dashboard to load
     driver.get("http://127.0.0.1:8050")
