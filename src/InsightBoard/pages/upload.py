@@ -838,15 +838,18 @@ def highlight_and_tooltip_changes(
             # First, check for validation errors and highlight row
             if any(errors):
                 error_rows.append(idx + 1)
-        style_data_conditional.append(
-            {
-                "if": {
-                    "filter_query": " || ".join([f"{{Row}} = {k}" for k in error_rows]),
-                },
-                "backgroundColor": "#FFCCCC",
-                "color": "black",
-            }
-        )
+        if error_rows:
+            style_data_conditional.append(
+                {
+                    "if": {
+                        "filter_query": " || ".join(
+                            [f"{{Row}} = {k}" for k in error_rows]
+                        ),
+                    },
+                    "backgroundColor": "#FFCCCC",
+                    "color": "black",
+                }
+            )
 
         for i, row in enumerate(data[start_idx:end_idx]):
             row_tooltip = {}  # Store tooltips for the row
