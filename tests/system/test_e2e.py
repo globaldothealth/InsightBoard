@@ -13,7 +13,7 @@ def test_insightboard(driver):
     upload = page_upload(driver)
     upload.clear_data()
     upload.select_parser("adtl-source1")
-    data_file = str(
+    data_file = (
         Path(__file__).parent
         / "InsightBoard"
         / "projects"
@@ -21,7 +21,8 @@ def test_insightboard(driver):
         / "data"
         / "sample_data_source1.csv"
     )
-    upload.select_data_file(data_file)
+    assert data_file.exists()
+    upload.select_data_file(str(data_file))
     upload.parse()
     time.sleep(1)
     assert len(upload.datatable_rows()) == 20
