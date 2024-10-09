@@ -17,7 +17,7 @@ def check_DataTable_row_count(upload, count):
             break
         time.sleep(1)
     else:
-        assert False, "Expected 20 rows in DataTable, but got less."
+        assert False, f"Expected {count} rows in DataTable, but got {len(rows)}."
 
 
 def save_screenshot(driver, name="screenshot"):
@@ -45,7 +45,6 @@ def test_insightboard(driver):
         upload.parse()
         time.sleep(1)
         check_DataTable_row_count(upload, 20)
-        raise Exception("Test failed")
         # Only show validation errors: Check that the validated rows are hidden
         upload.toggle_only_show_validation_errors()
         time.sleep(1)
