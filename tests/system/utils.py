@@ -48,9 +48,9 @@ def driver():
     # Launch the Dash app in a separate thread
     port = 8050
     cmd = [
-        "gunicorn",
+        "waitress-serve",
+        f"--listen=0.0.0.0:{port}",
         "InsightBoard.app:server",
-        *["--bind", f"0.0.0.0:{port}"],
     ]
     process = subprocess.Popen(cmd)
     time.sleep(5)
