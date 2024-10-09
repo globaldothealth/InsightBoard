@@ -24,12 +24,15 @@ jobs:
             3.12
       - name: Install the latest version of uv
         uses: astral-sh/setup-uv@v2
-      - name: Run tests
+      - name: Setup test environment
         run: |
           uv sync --all-extras
-          uv sync --dev
           uv pip install "adtl[parquet] @ git+https://github.com/globaldothealth/adtl"
+      - name: Unit tests (and coverage report)
+        run: |
           uv run pytest --cov=InsightBoard --cov-report=html tests/unit
+      - name: System tests
+        run: |
           uv run pytest tests/system
       - name: Upload coverage report
         uses: actions/upload-artifact@v4

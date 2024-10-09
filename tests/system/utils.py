@@ -78,13 +78,7 @@ def driver():
 
 
 def select_project(driver, project_name):
-    dropdown = driver.find_element(By.ID, "project-dropdown")
-    dropdown.click()
-    option_to_select = driver.find_element(By.XPATH, f'//div[text()="{project_name}"]')
-    option_to_select.click()
-    # assert that the project is selected
-    time.sleep(1)
-    assert dropdown.text == project_name
+    dropdown_select(driver, "project-dropdown", project_name)
 
 
 def page_upload(driver):
@@ -96,6 +90,17 @@ def page_upload(driver):
     time.sleep(1)
     assert driver.find_element(By.TAG_NAME, "h1").text == "Upload data"
     return PageUpload(driver)
+
+
+def dropdown_select(driver, dropdown_id, option):
+    dropdown = driver.find_element(By.ID, dropdown_id)
+    dropdown.click()
+    option_to_select = dropdown.find_element(
+        By.XPATH, f'//div[text()="{option}"]'
+    )
+    option_to_select.click()
+    dropdown_value = dropdown.find_element(By.CLASS_NAME, "Select-value-label")
+    assert dropdown_value.text == option
 
 
 class PageUpload:
@@ -111,14 +116,7 @@ class PageUpload:
             file.unlink()
 
     def select_parser(self, parser_name):
-        dropdown = self.driver.find_element(By.ID, "parser-dropdown")
-        dropdown.click()
-        option_to_select = self.driver.find_element(
-            By.XPATH, f'//div[text()="{parser_name}"]'
-        )
-        option_to_select.click()
-        time.sleep(1)
-        assert dropdown.text == parser_name
+        dropdown_select(self.driver, "parser-dropdown", parser_name)
 
     def select_data_file(self, file_path):
         input_box = self.driver.find_element(By.XPATH, '//input[@type="file"]')
