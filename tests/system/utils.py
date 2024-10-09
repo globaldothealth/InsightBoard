@@ -27,6 +27,7 @@ def driver():
     service = Service(binary_path)
     options = webdriver.ChromeOptions()
     options.add_argument("--headless")
+    options.add_argument("--window-size=1920,1080")
     driver = webdriver.Chrome(service=service, options=options)
 
     # Override default project location
