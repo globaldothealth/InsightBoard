@@ -24,18 +24,12 @@ jobs:
             3.12
       - name: Install the latest version of uv
         uses: astral-sh/setup-uv@v2
-
-      - name: Setup test environment
+      - name: Run unit tests
         run: |
-          uv sync --all-extras
-          uv pip install "adtl[parquet] @ git+https://github.com/globaldothealth/adtl"
-
-      - name: Unit tests (and coverage report)
+          uvx nox -s unit_tests
+      - name: Run system tests
         run: |
-          uv run pytest --cov=InsightBoard --cov-report=html tests/unit
-      - name: System tests
-        run: |
-          uv run pytest tests/system
+          uvx nox -s system_tests
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
@@ -58,7 +52,7 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo '<img src="data:image/png;base64,'$(cat screenshot_base64.txt)'" alt="Screenshot"/>' >> $GITHUB_STEP_SUMMARY
           fi
-      - name: Upload screenshot as artifact
+      - name: Upload screenshot as artifact (on system test failure)
         if: failure()
         uses: actions/upload-artifact@v3
         with:
