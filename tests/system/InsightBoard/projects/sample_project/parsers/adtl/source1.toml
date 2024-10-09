@@ -1,0 +1,75 @@
+[adtl]
+  name = "source1"
+  description = "Parses the sample dataset"
+  defaultDateFormat = "%d/%m/%Y"
+
+  [adtl.tables]
+    linelist = { kind = "oneToOne", schema = "../../schemas/linelist.schema.json" }
+
+[linelist]
+
+  [linelist."Case ID"]
+    field = "CaseNumber"
+
+  [linelist.Age]
+    field = "PersonAge"
+
+  [linelist.Gender]
+    field = "Sex"
+    ignoreMissingKey = true
+
+    [linelist.Gender.values]
+        "Male" = "Male"
+        "Female" = "Female"
+        "Other" = "Other"
+        "M" = "Male"
+        "F" = "Female"
+        "O" = "Other"
+
+  [linelist.Location]
+    field = "City"
+
+  [linelist."Date of Onset"]
+    field = "OnsetDate"
+    ignoreMissingKey = true
+
+  [linelist.Symptoms]
+    field = "ReportedSymptoms"
+
+  [linelist.Outcome]
+    field = "HealthOutcome"
+    ignoreMissingKey = true
+
+    [linelist.Outcome.values]
+        "Recovered" = "Recovered"
+        "Deceased" = "Deceased"
+        "Death" = "Deceased"
+        "Dead" = "Deceased"
+        "Died" = "Deceased"
+        "recovered" = "Recovered"
+        "Recov" = "Recovered"
+
+  [linelist."Vaccination Status"]
+    field = "VaxStatus"
+    ignoreMissingKey = true
+
+    [linelist."Vaccination Status".values]
+        "yes" = "Yes"
+        "no" = "No"
+        "Yes" = "Yes"
+        "No" = "No"
+        "YES" = "Yes"
+        "NO" = "No"
+        "none" = "No"
+        "Partial" = "Partial"
+        "Vaccinated" = "Yes"
+        "Not Vaccinated" = "No"
+        "V" = "Yes"
+        "N" = "No"
+        "null" = "Unknown"
+
+  [linelist."Days to Recovery"]
+    field = "RecoveryDays"
+
+  [linelist."Underlying Conditions"]
+    field = "PreexistingConditions"

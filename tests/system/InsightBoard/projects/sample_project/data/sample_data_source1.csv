@@ -1,0 +1,21 @@
+CaseNumber,PersonAge,Sex,City,OnsetDate,ReportedSymptoms,HealthOutcome,VaxStatus,RecoveryDays,PreexistingConditions
+001,34,Male,New York,08/10/2023,"fever, cough, headache",recovered,yes,10,None
+002,27,F,L.A.,09/08/2023,"fever, cough, fatigue",recovered,No,15,Athma
+003,55,Female,Chicago,10/08/2023,"short breath, fatigue",Deceased,no,N/A,Diabeties
+004,40,M,Houston,11/08/2023,"fever, cough",Recovered,Yes,12,High BP
+005,62,Other,Miami,12/08/2023,"fatigue, muscle pain, fever",Died,no,N/A,None
+006,18,F,Seattle,"13/08/2023","fever, cough",Recov,Partial,8,None
+007,70,M,Atlanta,14/08/2023,"fever, shortness of breath",Dead,None,N/A,Lung issue
+008,50,Female,SF,15/08/2023,"fever, headache",Recovered,yes,11,HBP
+009,44,Female,Boston,16/08/2023,"fatigue, muscle ache",recovered,Yes,13,None
+010,29,Male,Denver,17/08/2023,"fever, coughing",recovered,Partial,9,None
+011,23,Male,LV,18/08/2023,"fatigue, muscle pain",Recov,none,14,None
+012,37,F,Dallas,19/08/2023,"fever, cough, fatigue",Recovd,YES,10,None
+013,60,Male,NewYork,20/08/2023,"fever, short breath",Died,NO,N/A,Heart problems
+014,47,O,S.D.,21/08/2023,"fever, coughing",recovered,yes,12,None
+015,33,Female,Chicago,22/08/2023,"fever, headache",recovered,no,11,None
+016,25,Male,Philly,23/08/2023,"fatigue, muscle pain",Recov,Partial,8,None
+017,71,F,Detroit,24/08/2023,"short breath",Dead,No,N/A,Kidney Disease
+018,38,F,Houston,25/08/2023,"fever, coughing",recovered,yes,9,None
+019,55,Male,L.A.,26/08/2023,"fever, fatigue",Recov,None,15,Asthma
+020,65,Female,NYC,27/08/2023,"short breath",Dead,No,N/A,Diabetes
