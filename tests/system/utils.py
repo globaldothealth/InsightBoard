@@ -38,9 +38,7 @@ def driver():
         config_file.parent.mkdir(parents=True, exist_ok=True)
         config = {}
     new_config = {
-        'project': {
-            'folder': str(Path(__file__).parent / "InsightBoard" / "projects")
-        }
+        "project": {"folder": str(Path(__file__).parent / "InsightBoard" / "projects")}
     }
     with open(config_file, "w") as f:
         f.write(tomli_w.dumps(new_config))
@@ -90,9 +88,7 @@ def page_upload(driver):
 def dropdown_select(driver, dropdown_id, option):
     dropdown = driver.find_element(By.ID, dropdown_id)
     dropdown.click()
-    option_to_select = dropdown.find_element(
-        By.XPATH, f'//div[text()="{option}"]'
-    )
+    option_to_select = dropdown.find_element(By.XPATH, f'//div[text()="{option}"]')
     option_to_select.click()
     dropdown_value = dropdown.find_element(By.CLASS_NAME, "Select-value-label")
     assert dropdown_value.text == option
