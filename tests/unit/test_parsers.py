@@ -54,10 +54,6 @@ def test_adtl_check_parser_fail():
             adtl_check_parser()
 
 
-@pytest.mark.skipif(
-    sys.platform.startswith("win"),
-    reason="File access permissions error on Windows (investigate)",
-)
 def test_adtl():
     class mock_Result:
         stdout = b"test"
@@ -97,10 +93,6 @@ class mock_adtl_parser:
             return Parse(self.df)
 
 
-@pytest.mark.skipif(
-    sys.platform.startswith("win"),
-    reason="File access permissions error on Windows (investigate)",
-)
 @patch("InsightBoard.parsers.adtl_parser", mock_adtl_parser)
 def test_parse_adtl__str():
     df = pd.DataFrame({"name": ["test1", "test2", "test3"]})
@@ -113,10 +105,6 @@ def test_parse_adtl__str():
     assert db1["data"]["name"].equals(df["name"])
 
 
-@pytest.mark.skipif(
-    sys.platform.startswith("win"),
-    reason="File access permissions error on Windows (investigate)",
-)
 @patch("InsightBoard.parsers.adtl_parser", mock_adtl_parser)
 def test_parse_adtl__list():
     df = pd.DataFrame({"name": ["test1", "test2", "test3"]})
