@@ -1,1 +1,1 @@
-from .config import ConfigManager  # noqa: F401
+from InsightBoard.config.config import ConfigManager  # noqa: F401

@@ -40,11 +40,4 @@ Details of how to create a new project are provided in the accompanying [documen
 
 ## Development
 
-If you have cloned the repository, it is recommended to install into a virtual environment. We use [uv](https://docs.astral.sh/uv/) to manage virtual environments. First, [install `uv`](https://docs.astral.sh/uv/getting-started/installation/), then activate the virtual environment:
-
-```bash
-uv sync
-. .venv/bin/activate
-```
-
-To launch the dashboard in development mode run `python -m InsightBoard`.
+See the [development](dev) pages for more information.

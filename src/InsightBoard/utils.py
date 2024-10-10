@@ -6,8 +6,8 @@ import pandas as pd
 from pathlib import Path
 from jsonschema import Draft7Validator
 
-from .project import Project
-from .project.project import (  # expose downstream # noqa: F401
+from InsightBoard.project import Project
+from InsightBoard.project.project import (  # expose downstream # noqa: F401
     get_projects_list,
     get_default_project,
     get_custom_assets_folder,

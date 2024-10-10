@@ -1,1 +1,1 @@
-from .project import Project  # noqa: F401
+from InsightBoard.project.project import Project  # noqa: F401

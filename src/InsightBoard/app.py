@@ -1,10 +1,22 @@
-from pathlib import Path
+import sys
 import dash
-from dash import dcc, html, Input, Output
 import dash_bootstrap_components as dbc
 
-from .config import ConfigManager
-from .utils import get_projects_list, get_default_project, get_custom_assets_folder
+from dash import dcc, html, Input, Output
+from pathlib import Path
+
+from InsightBoard.config import ConfigManager
+from InsightBoard.utils import (
+    get_projects_list,
+    get_default_project,
+    get_custom_assets_folder,
+)
+
+# If running from PyInstaller, get the path to the temporary directory
+if hasattr(sys, "_MEIPASS"):
+    base_path = Path(sys._MEIPASS)
+else:
+    base_path = Path(__file__).parent
 
 projects = get_projects_list()
 default_project = get_default_project()
@@ -21,10 +33,12 @@ custom_css = (
     else []
 )
 cogwheel = (html.I(className="fas fa-cog"),)
+pages_path = base_path / "pages"
 
 app = dash.Dash(
     __name__,
     use_pages=True,
+    pages_folder=str(pages_path),
     external_stylesheets=[
         dbc.themes.BOOTSTRAP,
         (
@@ -83,8 +97,9 @@ def ProjectDropDown():
 @app.callback(Output("project", "data"), Input("project-dropdown", "value"))
 def store_selected_project(project):
     config = ConfigManager()
-    config.set("project.default", project)
-    config.save()
+    if project:
+        config.set("project.default", project)
+        config.save()
     return project
 
 
