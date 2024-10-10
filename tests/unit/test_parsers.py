@@ -1,4 +1,3 @@
-import sys
 import importlib
 from unittest import mock
 import pytest
@@ -101,7 +100,7 @@ def test_parse_adtl__str():
     dbs = parse_adtl(df, spec_file, table_names)
     assert len(dbs) == 1
     db1 = dbs[0]
-    assert db1["database"] == "table1"
+    assert db1["table"] == "table1"
     assert db1["data"]["name"].equals(df["name"])
 
 
@@ -113,7 +112,7 @@ def test_parse_adtl__list():
     dbs = parse_adtl(df, spec_file, table_names)
     len(dbs) == 2
     db1, db2 = dbs
-    assert db1["database"] == "table1"
+    assert db1["table"] == "table1"
     assert db1["data"]["name"].equals(df["name"])
-    assert db2["database"] == "table2"
+    assert db2["table"] == "table2"
     assert db2["data"]["name"].equals(df["name"])

@@ -32,7 +32,7 @@ def parse(data: pd.DataFrame) -> list[dict]:
 
     return [
         {
-            "database": "linelist",     # Target table = "linelist"
+            "table": "linelist",     # Target table = "linelist"
             "data": data,               # Parsed data
         },
     ]
@@ -56,7 +56,7 @@ if __name__ == "__main__":
     # Validate that the output is as expected
     df = tables[0]["data"]
     assert isinstance(df, pd.DataFrame)
-    assert tables[0]["database"] == "linelist"
+    assert tables[0]["table"] == "linelist"
     assert df.columns.tolist() == ["date", "country", "value"]
     assert df["country"].tolist() == ["United States", "United Kingdom"]
     # Print the parsed data

@@ -74,7 +74,7 @@ def parse_adtl(df: pd.DataFrame, spec_file, table_names) -> list[dict]:
 
     return [
         {
-            "database": table_name,
+            "table": table_name,
             "data": df,
         }
         for table_name, df in zip(table_names, dfs)
