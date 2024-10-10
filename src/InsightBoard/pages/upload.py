@@ -776,8 +776,10 @@ def parse_data(project, contents, filename, selected_parser):
         projectObj = utils.get_project(project)
         parsed_df_list = projectObj.load_and_parse(filename, contents, selected_parser)
 
-        parsed_dbs = [d["database"] for d in parsed_df_list]
-        parsed_dfs = [d["data"] for d in parsed_df_list]
+        # Extract the table names and data from the parsed data
+        # NB: Parsers originally used 'database' instead of 'table' as table name
+        parsed_dbs = [d.get("table", d.get("database")) for d in parsed_df_list]
+        parsed_dfs = [d.get("data") for d in parsed_df_list]
 
         # Dash cannot store DataFrames directly, so convert them to dictionaries
         parsed_dbs_dict = [df.to_dict("records") for df in parsed_dfs]
@@ -799,7 +801,9 @@ def parse_data(project, contents, filename, selected_parser):
 
     except Exception as e:
         return (
-            f"There was an error processing the file: {str(e)}",
+            dbc.Alert(
+                f"There was an error processing the file: {str(e)}", color="danger"
+            ),
             None,
             [],
             "",
