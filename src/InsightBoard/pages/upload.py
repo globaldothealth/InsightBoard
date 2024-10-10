@@ -1,14 +1,15 @@
 import math
 import dash
+import logging
 import pandas as pd
 import dash_bootstrap_components as dbc
-import logging
 
 from pathlib import Path
 from datetime import datetime
 from dash import dcc, html, dash_table, Input, Output, State, callback
 
 import InsightBoard.utils as utils
+from InsightBoard.database import WritePolicy
 
 # DataTable supports a maximum of 512 conditional formatting rules,
 #  so stop adding rules after this limit is reached
@@ -31,6 +32,7 @@ def layout():
             dcc.Store(id="validation-warnings"),  # validation warnings (current table)
             dcc.Store(id="only-show-validation-errors"),  # Setting: Only show errors
             dcc.Store(id="show-full-validation-log"),  # Setting: Show full log
+            dcc.Store(id="update-existing-records"),  # Setting: Update records
             # Page rendering
             html.H1("Upload data"),
             dcc.Location(id="url-refresh", refresh=True),
@@ -169,8 +171,9 @@ def layout():
                 options=[
                     {"label": "Only show validation errors", "value": 1},
                     {"label": "Show full validation log", "value": 2},
+                    {"label": "Update existing records", "value": 3},
                 ],
-                value=[],  # list of 'value's are are 'on', e.g. [2]
+                value=[3],  # list of 'value's are are 'on', e.g. [2]
                 inline=True,
                 switch=True,
                 style={"margin": "10px"},
@@ -246,6 +249,15 @@ def update_show_full_validation_log(value):
     return 2 in value
 
 
+# Update state when settings are changed: Update Existing Records
+@callback(
+    Output("update-existing-records", "value"),  # Update the 'update records' setting
+    Input("upload-settings", "value"),  # Triggered by settings switch changes
+)
+def update_update_existing_records(value):
+    return 3 in value
+
+
 # Update page size of the DataTable based on dropdown selection
 @callback(
     Output("editable-table", "page_size"),  # Update the DataTable page size
@@ -263,6 +275,7 @@ def update_page_size(page_size):
     Input("imported-tables-dropdown", "value"),
     Input("unique-table-id", "data"),
     Input("only-show-validation-errors", "value"),
+    Input("update-existing-records", "value"),
     State("project", "data"),
     State("edited-data-store", "data"),  # Populate with table from edited-data store
     State("parsed-data-store", "data"),
@@ -273,6 +286,7 @@ def update_table(
     selected_table,
     unique_table_id,
     only_show_validation_errors,
+    update_existing_records,
     project,
     edited_datasets,
     parsed_datasets,
@@ -301,6 +315,12 @@ def update_table(
     # Filter showing only rows with errors
     if only_show_validation_errors:
         data = [row for row, error in zip(data, errors) if any(error)]
+    if not update_existing_records:
+        # Only display rows where primary key does not already exist in the database
+        projectObj = utils.get_project(project)
+        primary_key = projectObj.database.get_primary_key(selected_table)
+        existing_keys = projectObj.database.get_primary_keys(selected_table)
+        data = [row for row in data if row.get(primary_key) not in existing_keys]
 
     return columns, data
 
@@ -991,13 +1011,21 @@ def display_confirm_dialog(n_clicks, table_names):
     State("project", "data"),
     State("imported-tables-dropdown", "options"),
     State("edited-data-store", "data"),
+    State("update-existing-records", "value"),
 )
-def commit_to_database(submit_n_clicks, project, table_names, datasets):
+def commit_to_database(
+    submit_n_clicks, project, table_names, datasets, update_existing_records
+):
     if submit_n_clicks and project and table_names and datasets:
         try:
+            projectObj.database.set_write_policy(
+                WritePolicy.UPSERT if update_existing_records else WritePolicy.APPEND
+            )
             projectObj.database.commit_tables_dict(table_names, datasets)
-            return "Data committed to database.", True
+            return dbc.Alert("Data committed to database.", color="success"), True
         except Exception as e:
-            return f"Error committing data to file: {str(e)}", False
+            return dbc.Alert(
+                f"Error committing data to file: {str(e)}", color="danger"
+            ), False
 
     return "No data committed yet.", False

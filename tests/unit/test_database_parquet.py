@@ -6,7 +6,7 @@ from unittest import mock
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from InsightBoard.database import Database, DatabaseBackend
+from InsightBoard.database import Database, DatabaseBackend, WritePolicy, BackupPolicy
 
 
 @pytest.fixture
@@ -188,19 +188,47 @@ def test_write_table_parquet(db):
     assert db1.equals(df)
 
 
-def test_write_table_parquet__primary_key(db):
+def test_write_table_parquet__primary_key_upsert(db):
     # Write table with primary key
     table_name = "table1"
     df = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
-    db.write_table_parquet(table_name, df)
+    write_policy = WritePolicy.UPSERT
+    backup_policy = BackupPolicy.NONE
+    db.write_table_parquet(table_name, df, write_policy, backup_policy)
     # Overwrite table including primary key duplicates
     with patch(
         "InsightBoard.database.database.DatabaseParquet.get_primary_key"
     ) as mock_get_primary_key:
         mock_get_primary_key.return_value = "col1"
-        df = pd.DataFrame({"col1": [3, 4, 5], "col2": [7, 8, 9]})
-        db.write_table_parquet(table_name, df)
-    # Read and check parquet file
-    db1 = pd.read_parquet(db.data_folder + "/table1.parquet")
-    df_composite = pd.DataFrame({"col1": [1, 2, 3, 4, 5], "col2": [4, 5, 7, 8, 9]})
-    assert db1.equals(df_composite)
+        df = pd.DataFrame({"col1": [1, 3, 4, 5], "col2": [7, 8, 9, 10]})
+        db.write_table_parquet(table_name, df, write_policy, backup_policy)
+    # Read and check parquet file (sort columns for comparison)
+    db1 = pd.read_parquet(db.data_folder + "/table1.parquet").sort_values("col1")
+    df_composite = pd.DataFrame(
+        {"col1": [1, 2, 3, 4, 5], "col2": [7, 5, 8, 9, 10]}
+    ).sort_values("col1")
+    # upsert policy (rows 2 and 3 update)
+    assert (db1.values == df_composite.values).all()
+
+
+def test_write_table_parquet__primary_key_append(db):
+    # Write table with primary key
+    table_name = "table1"
+    df = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
+    write_policy = WritePolicy.APPEND
+    backup_policy = BackupPolicy.NONE
+    db.write_table_parquet(table_name, df, write_policy, backup_policy)
+    # Overwrite table including primary key duplicates
+    with patch(
+        "InsightBoard.database.database.DatabaseParquet.get_primary_key"
+    ) as mock_get_primary_key:
+        mock_get_primary_key.return_value = "col1"
+        df = pd.DataFrame({"col1": [1, 3, 4, 5], "col2": [7, 8, 9, 10]})
+        db.write_table_parquet(table_name, df, write_policy, backup_policy)
+    # Read and check parquet file (sort columns for comparison)
+    db1 = pd.read_parquet(db.data_folder + "/table1.parquet").sort_values("col1")
+    df_composite = pd.DataFrame(
+        {"col1": [1, 2, 3, 4, 5], "col2": [4, 5, 6, 9, 10]}
+    ).sort_values("col1")
+    # append policy (rows 2 and 3 do not update)
+    assert (db1.values == df_composite.values).all()

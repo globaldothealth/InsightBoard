@@ -1,1 +1,1 @@
-from .database import Database, DatabaseBackend  # noqa: F401
+from .database import Database, DatabaseBackend, WritePolicy, BackupPolicy  # noqa: F401
