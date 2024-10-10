@@ -305,7 +305,7 @@ wheels = [
 
 [[package]]
 name = "insightboard"
-version = "0.0.1.dev70+gebc1735.d20241009"
+version = "0.0.1.dev67+g27f9806.d20241010"
 source = { editable = "." }
 dependencies = [
     { name = "dash" },

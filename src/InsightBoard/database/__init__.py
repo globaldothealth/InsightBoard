@@ -1,1 +1,6 @@
-from .database import Database, DatabaseBackend, WritePolicy, BackupPolicy  # noqa: F401
+from InsightBoard.database.database import (  # noqa: F401
+    Database,
+    DatabaseBackend,
+    WritePolicy,
+    BackupPolicy,
+)

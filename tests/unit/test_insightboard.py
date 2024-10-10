@@ -2,8 +2,6 @@ import importlib
 
 from unittest.mock import patch
 
-import InsightBoard as ib
-
 
 def test_main_fcn():
     with (

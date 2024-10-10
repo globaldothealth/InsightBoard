@@ -1,0 +1,3 @@
+import InsightBoard
+
+InsightBoard.main()

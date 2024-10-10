@@ -1,19 +1,21 @@
 import time
 import pytest
 from pathlib import Path
-from utils import (
+from utils import (  # noqa: F401 (linter does not recognise driver as a fixture)
     driver,
     page_upload,
+    select_project,
     chromedriver_present,
     save_screenshot,
 )
 
 
 @pytest.mark.skipif(not chromedriver_present, reason="chromedriver not present")
-def test_insightboard(driver):
-    upload = page_upload(driver)
-    upload.clear_data()
+def test_insightboard(driver):  # noqa: F811 (driver is a fixture)
     try:
+        select_project(driver, "sample_project")
+        upload = page_upload(driver)
+        upload.clear_data()
         upload.select_parser("adtl-source1")
         data_file = (
             Path(__file__).parent

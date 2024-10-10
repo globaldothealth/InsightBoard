@@ -1,7 +1,5 @@
-from tempfile import NamedTemporaryFile
 import pandas as pd
 from pathlib import Path
-import adtl
 from InsightBoard.parsers import parse_adtl
 
 SPECIFICATION_FILE = Path("adtl") / "source1.toml"

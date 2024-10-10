@@ -28,6 +28,16 @@ def save_screenshot(driver, name="screenshot"):
     return str(screenshot_path)
 
 
+def timeout(driver, fcn):
+    for _ in range(10):
+        try:
+            fcn()
+            break
+        except Exception:
+            time.sleep(1)
+    assert fcn()
+
+
 @pytest.fixture
 def driver():
     service = Service(binary_path)
@@ -51,30 +61,24 @@ def driver():
         f.write(tomli_w.dumps(new_config))
 
     # Launch InsightBoard and wait for server to start
-    process = InsightBoard.launch_app()
-    InsightBoard.wait_for_server()
+    process = InsightBoard.launch_subprocess()  # app initializes during import ...
+    InsightBoard.wait_for_server()  # ... subprocess isolates startup
 
     # Open the Dash app in the browser
     driver.get("http://127.0.0.1:8050")
-    for _ in range(10):
-        try:
-            driver.find_element(By.TAG_NAME, "h1")
-            break
-        except Exception:
-            time.sleep(1)
-
-    # Stat with the sample project selected
-    select_project(driver, "sample_project")
+    WebDriverWait(driver, 10).until(
+        EC.visibility_of_element_located((By.ID, "project-dropdown"))
+    )
 
     yield driver
 
     # Restore the InsightBoard config file and close chromedriver / Dash app
     driver.quit()
+    process.terminate()
+    process.wait()
     if config:
         with open(config_file, "w") as f:
             f.write(tomli_w.dumps(config))
-    process.kill()
-    process.wait()
 
 
 def select_project(driver, project_name):
@@ -87,15 +91,20 @@ def page_upload(driver):
     )
     upload_link.click()
     # assert that the upload page is loaded
-    time.sleep(1)
-    assert driver.find_element(By.TAG_NAME, "h1").text == "Upload data"
+    timeout(
+        driver, lambda: driver.find_element(By.TAG_NAME, "h1").text == "Upload data"
+    )
     return PageUpload(driver)
 
 
 def dropdown_select(driver, dropdown_id, option):
     dropdown = driver.find_element(By.ID, dropdown_id)
     dropdown.click()
-    option_to_select = dropdown.find_element(By.XPATH, f'//div[text()="{option}"]')
+    option_to_select = WebDriverWait(driver, 10).until(
+        EC.visibility_of_element_located(
+            (By.XPATH, f'//div[@id="{dropdown_id}"]//div[text()="{option}"]')
+        )
+    )
     option_to_select.click()
     dropdown_value = dropdown.find_element(By.CLASS_NAME, "Select-value-label")
     assert dropdown_value.text == option
