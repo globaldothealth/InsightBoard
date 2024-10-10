@@ -81,6 +81,7 @@ def test_update_table():
     edited_datasets = [table1, table2]
     parsed_datasets = edited_datasets
     only_show_validation_errors = False
+    update_existing_records = True
     errors = []
 
     # Mock clean_dataset
@@ -96,6 +97,7 @@ def test_update_table():
             selected_table,
             unique_table_id,
             only_show_validation_errors,
+            update_existing_records,
             project,
             edited_datasets,
             parsed_datasets,
@@ -118,6 +120,7 @@ def test_update_table():
             selected_table,
             unique_table_id,
             only_show_validation_errors,
+            update_existing_records,
             project,
             edited_datasets,
             parsed_datasets,
