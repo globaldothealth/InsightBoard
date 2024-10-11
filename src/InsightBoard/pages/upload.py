@@ -15,6 +15,11 @@ from InsightBoard.database import WritePolicy
 #  so stop adding rules after this limit is reached
 MAX_CONDITIONAL_FORMATTING = 512
 
+# Due to formatting constraints we store the _delete column (which doubles as a button) as a string
+_DELETE_COLUMN = "_delete"
+_DELETE_TRUE = "↺"
+_DELETE_FALSE = "✖"
+
 # Register the page
 dash.register_page(__name__, path="/upload")
 projectObj = None
@@ -99,8 +104,15 @@ def layout():
                         columns=[],
                         data=[],
                         editable=True,
-                        row_deletable=True,
+                        hidden_columns=[],
+                        column_selectable=None,
                         style_data_conditional=[],
+                        css=[
+                            {  # Hide the annoying `Toggle Columns` button
+                                "selector": ".show-hide",
+                                "rule": "display: none",
+                            },
+                        ],
                         tooltip_data=[],
                         page_size=25,
                         style_table={
@@ -108,10 +120,17 @@ def layout():
                             "min-height": "300px",
                             "overflowY": "auto",
                         },
+                        # Freeze 'delete' and 'Row' columns
                         fixed_columns={
                             "headers": True,
-                            "data": 1,
-                        },  # Freeze first column
+                            "data": 2,
+                        },
+                        style_header_conditional=[
+                            {
+                                "if": {"column_id": _DELETE_COLUMN},
+                                "color": "transparent",
+                            },
+                        ],
                     ),
                 ],
                 style={
@@ -146,25 +165,48 @@ def layout():
                     "justifyContent": "flex-end",
                 },
             ),
-            # Button for reparsing edited data
-            dbc.Button("Revalidate", id="update-button", n_clicks=0),
-            # Buttons for downloading CSV and committing changes
-            dbc.Button(
-                "Download as CSV",
-                id="download-button",
-                n_clicks=0,
-                style={"margin": "10px"},
-            ),
-            dcc.Download(id="download-csv"),
-            # Commit Button moved to the right-hand side
-            dbc.Button(
-                "Commit to Database",
-                id="commit-button",
-                n_clicks=0,
-                disabled=True,
-                style={"float": "right", "margin": "10px"},
-            ),
+            # Buttons for row operations (on the next line)
+            html.Div(id="data-stats"),
             html.Div(id="commit-output"),
+            html.Div([
+                dbc.Button(
+                    "Reject rows with empty IDs",
+                    id="remove-empty-ids-button",
+                    n_clicks=0,
+                    style={"marginRight": "5px"},
+                ),
+                dbc.Button(
+                    "Reject rows with any errors",
+                    id="remove-error-rows-button",
+                    n_clicks=0,
+                    style={"margin": "5px"},
+                ),
+                dbc.Button(
+                    "Restore deleted rows",
+                    id="restore-deleted-rows-button",
+                    n_clicks=0,
+                    style={"margin": "5px"},
+                ),
+                html.Br(),
+                # Button for reparsing edited data
+                dbc.Button("Update & validate", id="update-button", n_clicks=0, style={"marginRight": "5px"}),
+                # Buttons for downloading CSV and committing changes
+                dbc.Button(
+                    "Download as CSV",
+                    id="download-button",
+                    n_clicks=0,
+                    style={"margin": "5px"},
+                ),
+                dcc.Download(id="download-csv"),
+                # Commit Button moved to the right-hand side
+                dbc.Button(
+                    "Commit to Database",
+                    id="commit-button",
+                    n_clicks=0,
+                    disabled=True,
+                    style={"float": "right", "margin": "10px", "verticalAlign": "middle"},
+                ),
+            ]),
             dcc.ConfirmDialog(id="confirm-commit-dialog", message=""),
             dbc.Checklist(
                 id="upload-settings",
@@ -173,7 +215,7 @@ def layout():
                     {"label": "Show full validation log", "value": 2},
                     {"label": "Update existing records", "value": 3},
                 ],
-                value=[3],  # list of 'value's are are 'on', e.g. [2]
+                value=[3],  # list of 'value's that are 'on' by default
                 inline=True,
                 switch=True,
                 style={"margin": "10px"},
@@ -189,11 +231,12 @@ def layout():
 @callback(
     Output("url-refresh", "href"),  # Refresh the page
     Input("close-button", "n_clicks"),  # Triggered by 'Close File' button
+    Input("project", "data"),  # Triggered by project selection in navbar
 )
-def refresh_url(n_clicks):
+def refresh_url(n_clicks, project):
     if n_clicks:
         return "/upload"
-    return None
+    raise dash.exceptions.PreventUpdate
 
 
 # Update parser dropdown based on selected project
@@ -270,12 +313,19 @@ def update_page_size(page_size):
 # When a table name is selected from the dropdown, update the DataTable display
 @callback(
     Output("editable-table", "columns"),  # Update DataTable
+    Output("editable-table", "hidden_columns"),
     Output("editable-table", "data"),
+    Output("editable-table", "active_cell"),
+    Output("data-stats", "children"),
     Input("imported-tables-dropdown", "options"),  # Triggered by 'table' selection ...
     Input("imported-tables-dropdown", "value"),
     Input("unique-table-id", "data"),
     Input("only-show-validation-errors", "value"),
     Input("update-existing-records", "value"),
+    Input("remove-empty-ids-button", "n_clicks"),
+    Input("remove-error-rows-button", "n_clicks"),
+    Input("restore-deleted-rows-button", "n_clicks"),
+    Input("editable-table", "active_cell"),
     State("project", "data"),
     State("edited-data-store", "data"),  # Populate with table from edited-data store
     State("parsed-data-store", "data"),
@@ -287,6 +337,10 @@ def update_table(
     unique_table_id,
     only_show_validation_errors,
     update_existing_records,
+    remove_empty_ids_n_clicks,
+    remove_error_rows_n_clicks,
+    restore_deleted_rows_n_clicks,
+    active_cell,
     project,
     edited_datasets,
     parsed_datasets,
@@ -297,9 +351,22 @@ def update_table(
     if not datasets:
         datasets = parsed_datasets
     if not datasets:
-        return [], []
+        raise dash.exceptions.PreventUpdate
+
+    ctx = dash.callback_context
+    trig_active_cell = ctx_trigger(ctx, "editable-table.active_cell")
+    trig_remove_empty_ids = ctx_trigger(ctx, "remove-empty-ids-button.n_clicks")
+    trig_remove_error_rows = ctx_trigger(ctx, "remove-error-rows-button.n_clicks")
+    trig_restore_deleted_rows = ctx_trigger(ctx, "restore-deleted-rows-button.n_clicks")
+
+    # The only active cell we want to respond to is the delete button
+    if trig_active_cell and active_cell and not active_cell.get("column_id") == _DELETE_COLUMN:
+        raise dash.exceptions.PreventUpdate
 
     data = datasets[options.index(selected_table)]
+    data_stats = f"Total rows: {len(data)}"
+    projectObj = utils.get_project(project)
+    primary_key = projectObj.database.get_primary_key(selected_table)
 
     # Convert any lists to strings for display
     data = clean_dataset(data, project, selected_table, lists_to_strings=True)
@@ -307,22 +374,59 @@ def update_table(
     columns = [{"name": col, "id": col, "editable": True} for col in keys]
     columns = utils.ensure_schema_ordering(columns, project, selected_table)
 
-    # Prepend non-editable 'Row' column
-    columns.insert(0, {"name": "Row", "id": "Row", "editable": False})
-    for i, row in enumerate(data):
-        row["Row"] = i + 1
-
     # Filter showing only rows with errors
     if only_show_validation_errors:
         data = [row for row, error in zip(data, errors) if any(error)]
     if not update_existing_records:
-        # Only display rows where primary key does not already exist in the database
-        projectObj = utils.get_project(project)
-        primary_key = projectObj.database.get_primary_key(selected_table)
+        # Remove rows where the primary key does not already exist in the database
         existing_keys = projectObj.database.get_primary_keys(selected_table)
-        data = [row for row in data if row.get(primary_key) not in existing_keys]
+        data = [row for row in data if row.get(primary_key, None) not in existing_keys]
 
-    return columns, data
+    # Respond to delete button clicks
+    if active_cell and active_cell.get("column_id") == _DELETE_COLUMN:
+        i = active_cell.get("row")
+        row = data[i]
+        active_cell = False  # Permits the button to be clicked again straight away
+        row[_DELETE_COLUMN] = (
+            _DELETE_FALSE
+            if row.get(_DELETE_COLUMN, _DELETE_FALSE) == _DELETE_TRUE
+            else _DELETE_TRUE
+        )
+
+    # Mark rows with empty IDs for deletion
+    if trig_remove_empty_ids:
+        for row in data:
+            if not row.get(primary_key, None):
+                row[_DELETE_COLUMN] = _DELETE_TRUE
+
+    # Mark rows with errors for deletion
+    if trig_remove_error_rows:
+        for row in data:
+            i = row["Row"] - 1
+            if any(errors[i]):
+                row[_DELETE_COLUMN] = _DELETE_TRUE
+
+    # Restore deleted rows
+    if trig_restore_deleted_rows:
+        for row in data:
+            row[_DELETE_COLUMN] = _DELETE_FALSE
+
+    # Check how many visible rows are marked for deletion
+    deleted_rows = len([row for row in data if row.get(_DELETE_COLUMN, _DELETE_FALSE) == _DELETE_TRUE])
+
+    # Move columns '_delete' and 'Row' to the front
+    columns = [
+        {"name": _DELETE_COLUMN, "id": _DELETE_COLUMN, "editable": False},
+        {"name": "Row", "id": "Row", "editable": False},
+        *[col for col in columns if col["id"] not in [_DELETE_COLUMN, "Row"]],
+    ]
+
+    hidden_columns = []
+    data_stats += f", Showing: {len(data)}"
+    if deleted_rows:
+        data_stats += f", Deleted: {deleted_rows}"
+
+    return columns, hidden_columns, data, active_cell, data_stats
 
 
 # Utility function to remove quotes from strings
@@ -350,7 +454,7 @@ def clean_value(x, key_name=None, dtypes={}):
                "any": Any type is allowed.
     """
 
-    # Target type can be not specified if, e.g. enum or 'Rows' column
+    # Target type can be not specified if, e.g. enum or 'Row' column
     if isinstance(dtypes, str) and dtypes == "any":
         target_types = [
             "string",
@@ -462,15 +566,14 @@ def update_edited_data(
 ):
     new_edited_data_store = parsed_data
     if not new_edited_data_store:
-        return []
+        raise dash.exceptions.PreventUpdate
 
-    # Merge full data with edited data based on Row number, then pop Row
+    # Merge full data with edited data based on Row number
     full_edited_data = new_edited_data_store[tables.index(selected_table)]
     for row in edited_table_data:
         row_idx = row.get("Row", None)
         if row_idx:
             full_edited_data[row_idx - 1] = row
-        row.pop("Row", None)
 
     # Clean data
     clean_table_data = clean_dataset(
@@ -563,6 +666,7 @@ def validate_errors(
 
     # Validate the data against the schema
     df = df.where(pd.notnull(df), None)
+    df.drop(columns=["Row", _DELETE_COLUMN], inplace=True, errors="ignore")
     errors = errors_to_dict(utils.validate_against_jsonschema(df, schema_file_relaxed))
 
     # If a strict schema exists, validate against that too
@@ -791,6 +895,12 @@ def parse_data(project, contents, filename, selected_parser):
             )
         table_name = next(iter(parsed_dbs))
 
+        # Populate 'Row' and '_delete' columns
+        for table in parsed_dbs_dict:
+            for i, row in enumerate(table):
+                row["Row"] = i + 1
+                row[_DELETE_COLUMN] = _DELETE_FALSE
+
         return (
             f"File '{filename}' uploaded successfully.",
             parsed_dbs_dict,
@@ -845,23 +955,35 @@ def highlight_and_tooltip_changes(
     ]
     tooltip_data = [{} for _ in range(start_idx)]
     keys = next(iter(data)).keys()
-    data_cols = [k for k in keys if k != "Row"]
+    data_cols = [k for k in keys if k not in ["Row", _DELETE_COLUMN]]
 
+    deleted_rows = []
     error_rows = []
 
     # Iterate over each row in the modified data
     try:
         # Ensure rows with errors are highlighted before placing cell-level highlights
         for i, row in enumerate(data[start_idx:end_idx]):
-            row_tooltip = {}  # Store tooltips for the row
-            if only_show_validation_errors:
-                idx = row["Row"] - 1
-            else:
-                idx = i + start_idx
+            idx = row["Row"] - 1
             errors = validation_errors[idx]
-            # First, check for validation errors and highlight row
-            if any(errors):
+            # Check for deleted rows
+            if row[_DELETE_COLUMN] == _DELETE_TRUE:
+                deleted_rows.append(idx + 1)
+            # Check for validation errors and highlight row
+            if any(errors) and row[_DELETE_COLUMN] == _DELETE_FALSE:
                 error_rows.append(idx + 1)
+        if deleted_rows:
+            style_data_conditional.append(
+                {
+                    "if": {
+                        "filter_query": " || ".join(
+                            [f"{{Row}} = {k}" for k in deleted_rows]
+                        ),
+                    },
+                    "backgroundColor": "#CCCCCC",
+                    "color": "#A0A0A0",
+                }
+            )
         if error_rows:
             style_data_conditional.append(
                 {
@@ -877,10 +999,7 @@ def highlight_and_tooltip_changes(
 
         for i, row in enumerate(data[start_idx:end_idx]):
             row_tooltip = {}  # Store tooltips for the row
-            if only_show_validation_errors:
-                idx = row["Row"] - 1
-            else:
-                idx = i + start_idx
+            idx = row["Row"] - 1
             errors = validation_errors[idx]
             # Show validation errors per cell and show tooltip
             for error in errors:
@@ -984,7 +1103,8 @@ def update_table_style_and_validate(
 def download_csv(n_clicks, data, table_name):
     if n_clicks > 0 and data:
         df = pd.DataFrame(data)
-        df.drop(columns=["Row"], inplace=True)
+        df = df[df[_DELETE_COLUMN] == _DELETE_FALSE]
+        df.drop(columns=["Row", _DELETE_COLUMN], inplace=True)
         now = datetime.now()
         datetime_str = now.strftime("%Y-%m-%d_%H-%M-%S")
         filename = f"import_{table_name}_{datetime_str}.csv"
@@ -1025,6 +1145,15 @@ def commit_to_database(
             projectObj.database.set_write_policy(
                 WritePolicy.UPSERT if update_existing_records else WritePolicy.APPEND
             )
+            # Remove _delete rows and ['Row', '_delete'] columns before committing
+            for i, table in enumerate(datasets):
+                datasets[i] = [
+                    row for row in table if row[_DELETE_COLUMN] == _DELETE_FALSE
+                ]
+                datasets[i] = [
+                    {k: v for k, v in row.items() if k not in ["Row", _DELETE_COLUMN]}
+                    for row in datasets[i]
+                ]
             projectObj.database.commit_tables_dict(table_names, datasets)
             return dbc.Alert("Data committed to database.", color="success"), True
         except Exception as e:
