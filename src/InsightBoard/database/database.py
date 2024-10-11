@@ -9,7 +9,7 @@ from enum import Enum
 from pathlib import Path
 from pyarrow import Table
 from datetime import datetime
-from functools import cache
+from cachetools import cached, TTLCache
 
 
 class DatabaseBackend(Enum):
@@ -71,6 +71,7 @@ class DatabaseBase(ABC):
         for table_name, df in zip(table_names, datasets, strict=True):
             self.commit_table(table_name, df)
 
+    @cached(TTLCache(maxsize=1, ttl=10))
     def get_primary_key(self, table_name: str):
         schema = self.get_table_schema(table_name)
         # Find field that has the 'PrimaryKey' set to 'True'
@@ -84,13 +85,14 @@ class DatabaseBase(ABC):
             raise ValueError(f"Table '{table_name}' has more than one primary key.")
         return primary_key
 
+    @cached(TTLCache(maxsize=1, ttl=10))
     def get_primary_keys(self, table_name: str):
         primary_key = self.get_primary_key(table_name)
         if not primary_key:
             return []
         return self.read_table_column(table_name, primary_key).tolist()
 
-    @cache
+    @cached(TTLCache(maxsize=1, ttl=10))
     def get_table_schema(self, table_name: str):
         schema_filename = (
             Path(self.data_folder).parent / "schemas" / f"{table_name}.schema.json"

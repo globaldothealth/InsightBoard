@@ -55,12 +55,28 @@ def validate_row_jsonschema(row_number, row, schema):
     return list(validator.iter_errors(row))
 
 
-def ensure_schema_ordering(columns, project, table):
+def ensure_schema_ordering(columns, project, table, prepend=None, append=None):
+    if not prepend:
+        prepend = []
+    if not append:
+        append = []
     try:
         projectObj = get_project(project)
         schema = projectObj.database.get_table_schema(table)
         schema_order = list(schema["properties"].keys())
+        # Add columns in prepend to the beginning
+        for col in reversed(prepend):
+            if col["id"] not in schema_order:
+                schema_order.insert(0, col["id"])
+        # Add any remaining columns that are not in the schema to the end
+        for col in columns:
+            if col["id"] not in schema_order and col["id"] not in append:
+                schema_order.append(col["id"])
+        # Add columns in append to the end
+        for col in append:
+            if col["id"] not in schema_order:
+                schema_order.append(col["id"])
         columns = sorted(columns, key=lambda x: schema_order.index(x["id"]))
     except Exception as e:
-        logging.info(f"Error in ensure_schema_ordering: {str(e)}")
+        logging.debug(f"Error in ensure_schema_ordering: {str(e)}")
     return columns

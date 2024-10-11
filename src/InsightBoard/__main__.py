@@ -1,3 +1,4 @@
+import logging
 import argparse
 from InsightBoard import main
 from InsightBoard.app import app
@@ -10,6 +11,7 @@ if __name__ == "__main__":
 
     if args.debug:
         # Dash launches a Flask development server
+        logging.basicConfig(level=logging.DEBUG)
         app.run(debug=True)
     else:
         # Otherwise, launch the production server

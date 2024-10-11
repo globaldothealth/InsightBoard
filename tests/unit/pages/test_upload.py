@@ -55,6 +55,11 @@ def test_update_table():
     expected_columns = [
         {
             "editable": False,
+            "id": "_delete",
+            "name": "_delete",
+        },
+        {
+            "editable": False,
             "id": "Row",
             "name": "Row",
         },
@@ -82,6 +87,10 @@ def test_update_table():
     parsed_datasets = edited_datasets
     only_show_validation_errors = False
     update_existing_records = True
+    remove_empty_ids_n_clicks = None
+    remove_error_rows_n_clicks = None
+    restore_deleted_rows_n_clicks = None
+    active_cell = None
     errors = []
 
     # Mock clean_dataset
@@ -90,14 +99,26 @@ def test_update_table():
 
     # Return table1
     selected_table = "table1"
-    with patch("InsightBoard.pages.upload.clean_dataset") as mock_clean_dataset:
+    with (
+        patch("InsightBoard.pages.upload.clean_dataset") as mock_clean_dataset,
+        patch("InsightBoard.pages.upload.dash.callback_context") as mock_ctx,
+        patch("InsightBoard.pages.upload.ctx_trigger") as mock_ctx_trigger,
+        patch("InsightBoard.utils.get_project") as mock_get_project,
+    ):
         mock_clean_dataset.side_effect = _clean_dataset
-        columns, data = update_table(
+        mock_ctx.triggered = []
+        mock_ctx_trigger.return_value = False
+        mock_get_project.database.get_primary_key.return_value = "col1"
+        columns, hidden_columns, data, new_active_cell, data_stats = update_table(
             options,
             selected_table,
             unique_table_id,
             only_show_validation_errors,
             update_existing_records,
+            remove_empty_ids_n_clicks,
+            remove_error_rows_n_clicks,
+            restore_deleted_rows_n_clicks,
+            active_cell,
             project,
             edited_datasets,
             parsed_datasets,
@@ -113,14 +134,26 @@ def test_update_table():
 
     # Return table2
     selected_table = "table2"
-    with patch("InsightBoard.pages.upload.clean_dataset") as mock_clean_dataset:
+    with (
+        patch("InsightBoard.pages.upload.clean_dataset") as mock_clean_dataset,
+        patch("InsightBoard.pages.upload.dash.callback_context") as mock_ctx,
+        patch("InsightBoard.pages.upload.ctx_trigger") as mock_ctx_trigger,
+        patch("InsightBoard.utils.get_project") as mock_get_project,
+    ):
         mock_clean_dataset.side_effect = _clean_dataset
-        columns, data = update_table(
+        mock_ctx.triggered = []
+        mock_ctx_trigger.return_value = False
+        mock_get_project.database.get_primary_key.return_value = "col1"
+        columns, hidden_columns, data, new_active_cell, data_stats = update_table(
             options,
             selected_table,
             unique_table_id,
             only_show_validation_errors,
             update_existing_records,
+            remove_empty_ids_n_clicks,
+            remove_error_rows_n_clicks,
+            restore_deleted_rows_n_clicks,
+            active_cell,
             project,
             edited_datasets,
             parsed_datasets,
