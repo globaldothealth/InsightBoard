@@ -125,26 +125,27 @@ class DatabaseBase(ABC):
 class DatabaseParquet(DatabaseBase):
     def __init__(self, data_folder: str = ""):
         super().__init__(DatabaseBackend.PARQUET, data_folder)
+        self.suffix = "parquet"
 
     # override
     def get_tables_list(self):
         if not os.path.exists(self.data_folder):
             return []
         return [
-            ".".join(f.split(".")[:-1])
+            f[: -len(self.suffix) - 1]
             for f in os.listdir(self.data_folder)
-            if f.endswith(".parquet")
+            if f.endswith(f".{self.suffix}")
         ]
 
     # override
     def read_table(self, table_name: str) -> pd.DataFrame:
-        file_path = f"{self.data_folder}/{table_name}.parquet"
+        file_path = f"{self.data_folder}/{table_name}.{self.suffix}"
         table = pq.read_table(file_path)
         return table.to_pandas()
 
     # override
     def read_table_column(self, table_name: str, column_name: str) -> pd.Series:
-        file_path = f"{self.data_folder}/{table_name}.parquet"
+        file_path = f"{self.data_folder}/{table_name}.{self.suffix}"
         table = pq.read_table(file_path)
         return table[column_name].to_pandas()
 
@@ -159,7 +160,7 @@ class DatabaseParquet(DatabaseBase):
         if backup_policy == BackupPolicy.BACKUP:
             backup_folder = Path(self.data_folder) / "backup"
             backup_folder.mkdir(parents=True, exist_ok=True)
-            datetime_stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            datetime_stamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
             shutil.copy(file_path, f"{file_path.stem}_{datetime_stamp}_.backup")
 
     def write_table_parquet(
@@ -174,7 +175,7 @@ class DatabaseParquet(DatabaseBase):
         backup_policy = backup_policy or self.backup_policy
         if len(df) == 0:
             return
-        file_path = Path(self.data_folder) / f"{table_name}.parquet"
+        file_path = Path(self.data_folder) / f"{table_name}.{self.suffix}"
         file_path.parent.mkdir(parents=True, exist_ok=True)
         primary_key = self.get_primary_key(table_name)
         if primary_key and primary_key not in df.columns:
@@ -192,27 +193,73 @@ class DatabaseParquet(DatabaseBase):
                 )
             match write_policy:
                 case WritePolicy.APPEND:
-                    # Remove matching keys from the new DataFrame
-                    df = df[~df[primary_key].isin(old_df[primary_key])]
-                    # Combine old and new DataFrames (no duplicate primary keys)
-                    combined_df = pd.concat([old_df, df], ignore_index=True)
+                    combined_df = self.dataframe_append(df, old_df, primary_key)
                 case WritePolicy.UPSERT:
-                    # Remove matching keys from old DataFrame
-                    old_df = old_df[~old_df[primary_key].isin(df[primary_key])]
-                    # Combine old and new DataFrames (no duplicate primary keys)
-                    combined_df = pd.concat([old_df, df], ignore_index=True)
+                    combined_df = self.dataframe_upsert(df, old_df, primary_key)
                 case _:
                     raise ValueError(
                         f"Requested WritePolicy '{write_policy}' is not supported."
                     )
         else:
             # First time writing to the file
-            combined_df = df
+            combined_df = self.dataframe_new(df)
         # Write the updated DataFrame to the Parquet file
         table = Table.from_pandas(combined_df)
         pq.write_table(table, file_path)
         # Create a timestamped version of the database as a backup
         self.backup(file_path)
+
+    def dataframe_new(self, df):
+        # Create a new DataFrame
+        return df
+
+    def dataframe_append(self, df, old_df, primary_key):
+        # Remove matching keys from the new DataFrame
+        df = df[~df[primary_key].isin(old_df[primary_key])]
+        # Combine old and new DataFrames (no duplicate primary keys)
+        return pd.concat([old_df, df], ignore_index=True)
+
+    def dataframe_upsert(self, df, old_df, primary_key):
+        # Remove matching keys from old DataFrame
+        old_df = old_df[~old_df[primary_key].isin(df[primary_key])]
+        # Combine old and new DataFrames (no duplicate primary keys)
+        return pd.concat([old_df, df], ignore_index=True)
+
+
+class DatabaseParquetVersioned(DatabaseParquet):
+    def __init__(self, data_folder: str = ""):
+        super().__init__(data_folder)
+        self.BACKEND = DatabaseBackend.PARQUET_VERSIONED
+        self.suffix = "ver.parquet"
+
+    def dataframe_new(self, df):
+        # Add metadata columns to the new DataFrame
+        df.loc[:, ["_version"]] = 1
+        df.loc[:, ["_deleted"]] = False
+        df.loc[:, ["_datetime"]] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+        return df
+
+    def dataframe_append(self, df, old_df, primary_key):
+        # Remove matching keys from the new DataFrame
+        df = df[~df[primary_key].isin(old_df[primary_key])]
+        # Combine old and new DataFrames (no duplicate primary keys)
+        df.loc[:, ["_version"]] = 1
+        df.loc[:, ["_deleted"]] = False
+        df.loc[:, ["_datetime"]] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+        return pd.concat([old_df, df], ignore_index=True)
+
+    def dataframe_upsert(self, df, old_df, primary_key):
+        # Create new versions of existing records
+        df.loc[:, ["_version"]] = 1
+        df.loc[:, ["_deleted"]] = False
+        df.loc[:, ["_datetime"]] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+        for key in df[primary_key]:
+            if key in old_df[primary_key].values:
+                df.loc[df[primary_key] == key, "_version"] = (
+                    old_df.loc[old_df[primary_key] == key, "_version"].max() + 1
+                )
+        # Combine old and new DataFrames (versioned)
+        return pd.concat([old_df, df], ignore_index=True)
 
 
 class Database:
@@ -221,7 +268,10 @@ class Database:
         backend: DatabaseBackend = DatabaseBackend.PARQUET,
         data_folder: str = "",
     ):
-        if backend == DatabaseBackend.PARQUET:
-            return DatabaseParquet(data_folder)
-        else:
-            raise ValueError(f"Backend '{backend}' not supported.")
+        match backend:
+            case DatabaseBackend.PARQUET:
+                return DatabaseParquet(data_folder)
+            case DatabaseBackend.PARQUET_VERSIONED:
+                return DatabaseParquetVersioned(data_folder)
+            case _:
+                raise ValueError(f"Backend '{backend}' not supported.")

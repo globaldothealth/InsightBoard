@@ -120,7 +120,7 @@ app.layout = dbc.Container(
                     ],
                 ),
             ],
-            style={'display': 'none'}
+            style={"display": "none"},
         ),
         dbc.NavbarSimple(
             children=[

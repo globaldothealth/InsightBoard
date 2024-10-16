@@ -1,5 +1,4 @@
 import dash
-import dash_bootstrap_templates as dbt
 import dash_bootstrap_components as dbc
 
 from dash import html, dcc, callback, Input, Output, State
@@ -22,7 +21,7 @@ def layout():
 
     db_backend_list = [
         {"label": "Flat file (Parquet, unversioned)", "value": "parquet"},
-        {"label": "Flat file (Parquet, versioned)", "value": "parquet_versioned"}
+        {"label": "Flat file (Parquet, versioned)", "value": "parquet_versioned"},
     ]
     db_backend = "parquet"
 
@@ -38,7 +37,12 @@ def layout():
             # Store
             html.H1(
                 "Settings",
-                style={"width": "67%", "minWidth": "400px", "maxWidth": "800px", "border": "none"},
+                style={
+                    "width": "67%",
+                    "minWidth": "400px",
+                    "maxWidth": "800px",
+                    "border": "none",
+                },
             ),
             dbc.Card(
                 dbc.CardBody(

@@ -106,7 +106,9 @@ class Project:
             policy = policy.value
         opts = [v.value for v in BackupPolicy.__members__.values()]
         if policy not in opts:
-            raise ValueError(f"Invalid BackupPolicy value: {policy} (options are: {opts})")
+            raise ValueError(
+                f"Invalid BackupPolicy value: {policy} (options are: {opts})"
+            )
         self.database.set_backup_policy(policy)
         self.config["database"]["backup_policy"] = policy
         self.save_config()
@@ -119,7 +121,12 @@ class Project:
             backend = backend.value
         opts = [v.value for v in DatabaseBackend.__members__.values()]
         if backend not in opts:
-            raise ValueError(f"Invalid DatabaseBackend value: {backend} (options are: {opts})")
+            raise ValueError(
+                f"Invalid DatabaseBackend value: {backend} (options are: {opts})"
+            )
+        # Create a new database backend
+        self.database = Database(backend=backend, data_folder=self.get_data_folder())
+        # Update configuration
         self.config["database"]["backend"] = backend
         self.save_config()
 
