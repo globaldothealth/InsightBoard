@@ -29,7 +29,6 @@ def layout():
     return html.Div(
         [
             # Store
-            dcc.Store(id="project"),  # current project (from navbar)
             dcc.Store(id="unique-table-id"),  # unique id (project-table)
             dcc.Store(id="parsed-data-store"),  # parsed data (multi-table support)
             dcc.Store(id="edited-data-store"),  # edited data (multi-table support)
@@ -168,45 +167,56 @@ def layout():
             # Buttons for row operations (on the next line)
             html.Div(id="data-stats"),
             html.Div(id="commit-output"),
-            html.Div([
-                dbc.Button(
-                    "Reject rows with empty IDs",
-                    id="remove-empty-ids-button",
-                    n_clicks=0,
-                    style={"marginRight": "5px"},
-                ),
-                dbc.Button(
-                    "Reject rows with any errors",
-                    id="remove-error-rows-button",
-                    n_clicks=0,
-                    style={"margin": "5px"},
-                ),
-                dbc.Button(
-                    "Restore deleted rows",
-                    id="restore-deleted-rows-button",
-                    n_clicks=0,
-                    style={"margin": "5px"},
-                ),
-                html.Br(),
-                # Button for reparsing edited data
-                dbc.Button("Update & validate", id="update-button", n_clicks=0, style={"marginRight": "5px"}),
-                # Buttons for downloading CSV and committing changes
-                dbc.Button(
-                    "Download as CSV",
-                    id="download-button",
-                    n_clicks=0,
-                    style={"margin": "5px"},
-                ),
-                dcc.Download(id="download-csv"),
-                # Commit Button moved to the right-hand side
-                dbc.Button(
-                    "Commit to Database",
-                    id="commit-button",
-                    n_clicks=0,
-                    disabled=True,
-                    style={"float": "right", "margin": "10px", "verticalAlign": "middle"},
-                ),
-            ]),
+            html.Div(
+                [
+                    dbc.Button(
+                        "Reject rows with empty IDs",
+                        id="remove-empty-ids-button",
+                        n_clicks=0,
+                        style={"marginRight": "5px"},
+                    ),
+                    dbc.Button(
+                        "Reject rows with any errors",
+                        id="remove-error-rows-button",
+                        n_clicks=0,
+                        style={"margin": "5px"},
+                    ),
+                    dbc.Button(
+                        "Restore deleted rows",
+                        id="restore-deleted-rows-button",
+                        n_clicks=0,
+                        style={"margin": "5px"},
+                    ),
+                    html.Br(),
+                    # Button for reparsing edited data
+                    dbc.Button(
+                        "Update & validate",
+                        id="update-button",
+                        n_clicks=0,
+                        style={"marginRight": "5px"},
+                    ),
+                    # Buttons for downloading CSV and committing changes
+                    dbc.Button(
+                        "Download as CSV",
+                        id="download-button",
+                        n_clicks=0,
+                        style={"margin": "5px"},
+                    ),
+                    dcc.Download(id="download-csv"),
+                    # Commit Button moved to the right-hand side
+                    dbc.Button(
+                        "Commit to Database",
+                        id="commit-button",
+                        n_clicks=0,
+                        disabled=True,
+                        style={
+                            "float": "right",
+                            "margin": "10px",
+                            "verticalAlign": "middle",
+                        },
+                    ),
+                ]
+            ),
             dcc.ConfirmDialog(id="confirm-commit-dialog", message=""),
             dbc.Checklist(
                 id="upload-settings",
@@ -360,7 +370,11 @@ def update_table(
     trig_restore_deleted_rows = ctx_trigger(ctx, "restore-deleted-rows-button.n_clicks")
 
     # The only active cell we want to respond to is the delete button
-    if trig_active_cell and active_cell and not active_cell.get("column_id") == _DELETE_COLUMN:
+    if (
+        trig_active_cell
+        and active_cell
+        and not active_cell.get("column_id") == _DELETE_COLUMN
+    ):
         raise dash.exceptions.PreventUpdate
 
     data = datasets[options.index(selected_table)]
@@ -412,7 +426,9 @@ def update_table(
             row[_DELETE_COLUMN] = _DELETE_FALSE
 
     # Check how many visible rows are marked for deletion
-    deleted_rows = len([row for row in data if row.get(_DELETE_COLUMN, _DELETE_FALSE) == _DELETE_TRUE])
+    deleted_rows = len(
+        [row for row in data if row.get(_DELETE_COLUMN, _DELETE_FALSE) == _DELETE_TRUE]
+    )
 
     # Move columns '_delete' and 'Row' to the front
     columns = [

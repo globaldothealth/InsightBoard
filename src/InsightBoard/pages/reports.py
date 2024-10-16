@@ -13,7 +13,7 @@ projectObj = None
 def layout():
     return html.Div(
         [
-            html.H3("Select a Report"),
+            html.H1("Report"),
             dcc.Store(id="project", storage_type="memory"),  # Store the project name
             dcc.Dropdown(id="report-dropdown", placeholder="Select a report"),
             dcc.Loading(

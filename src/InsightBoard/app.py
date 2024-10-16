@@ -105,7 +105,8 @@ def store_selected_project(project):
 
 app.layout = dbc.Container(
     [
-        dcc.Store(id="project", storage_type="memory", data=default_project),
+        dcc.Store(id="project", data=default_project),
+        dcc.Store(id="dark-mode", data=False),
         dbc.NavbarSimple(
             children=[
                 dbc.NavLink("Home", href="/"),
@@ -134,6 +135,19 @@ app.layout = dbc.Container(
         html.Div(dash.page_container, id="page-content"),
     ],
 )
+
+
+@app.callback(
+    Output("app-container", "external_stylesheets"),
+    Input("dark-mode", "data"),
+)
+def apply_dark_mode(dark_mode):
+    print("Dark mode trigger (app.py): ", dark_mode)
+    if dark_mode:
+        return dbc.themes.DARKLY
+    else:
+        return dbc.themes.BOOTSTRAP
+
 
 # Client-side callback to check server status every second
 app.clientside_callback(

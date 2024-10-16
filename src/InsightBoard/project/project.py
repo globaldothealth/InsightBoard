@@ -1,11 +1,13 @@
 import io
 import json
 import base64
+import tomllib
+import tomli_w
 import pandas as pd
 
 from pathlib import Path
 
-from InsightBoard.database import Database, DatabaseBackend
+from InsightBoard.database import Database, DatabaseBackend, BackupPolicy
 from InsightBoard.config import ConfigManager
 from InsightBoard import utils
 
@@ -69,9 +71,38 @@ class Project:
             raise Exception(
                 f"Project '{self.name}' does not exist in '{self.projects_folder}'."
             )
+        self.default_config = {
+            "name": self.name,
+            "database": {
+                "backend": "parquet",
+                "data_folder": "data",
+                "backup_policy": BackupPolicy.NONE,
+            },
+        }
+        self.config = self.load_config()
         self.database = Database(
             backend=DatabaseBackend.PARQUET, data_folder=self.get_data_folder()
         )
+
+    def load_config(self):
+        config_path = Path(self.project_folder) / "config.toml"
+        if config_path.exists():
+            with open(config_path, "rb") as f:
+                file_config = tomllib.load(f)
+            return {**self.default_config, **file_config}
+        else:
+            return self.default_config
+
+    def save_config(self):
+        config_path = Path(self.project_folder) / "config.toml"
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(config_path, "wb") as f:
+            tomli_w.dump(self.config, f)
+
+    def set_db_backup_policy(self, policy):
+        self.database.set_backup_policy(policy)
+        self.config["database"]["backup_policy"] = policy
+        self.save_config()
 
     def get_reports_folder(self):
         return f"{self.project_folder}/reports"

@@ -80,6 +80,10 @@ class ConfigManager:
         """Get the project folder from the configuration."""
         return self.config.get("project", {}).get("folder", None)
 
+    def set_project_folder(self, folder):
+        """Set the project folder in the configuration."""
+        self.set("project.folder", folder)
+
     def get_default_project(self):
         """Get the default project from the configuration."""
         return self.config.get("project", {}).get("default", None)
