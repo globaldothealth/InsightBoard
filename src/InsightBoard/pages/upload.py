@@ -29,6 +29,7 @@ def layout():
     return html.Div(
         [
             # Store
+            dcc.Store(id="project"),  # project selection
             dcc.Store(id="unique-table-id"),  # unique id (project-table)
             dcc.Store(id="parsed-data-store"),  # parsed data (multi-table support)
             dcc.Store(id="edited-data-store"),  # edited data (multi-table support)

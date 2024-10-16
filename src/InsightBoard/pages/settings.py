@@ -1,6 +1,8 @@
 import dash
-from dash import html, dcc, callback, Input, Output, State
+import dash_bootstrap_templates as dbt
 import dash_bootstrap_components as dbc
+
+from dash import html, dcc, callback, Input, Output, State
 
 import InsightBoard.utils as utils
 from InsightBoard.config import ConfigManager
@@ -16,14 +18,20 @@ def layout():
     config = ConfigManager()
     project_folder = config.get_project_folder()
 
+    dark_mode = config.get("theme.dark_mode", False)
+
+    db_backend_list = [
+        {"label": "Flat file (Parquet, unversioned)", "value": "parquet"},
+        {"label": "Flat file (Parquet, versioned)", "value": "parquet_versioned"}
+    ]
     db_backend = "parquet"
 
     db_backup_policy_list = [
-        {"label": "None", "value": str(BackupPolicy.NONE)},
-        {"label": "Versioned", "value": str(BackupPolicy.VERSIONED)},
-        {"label": "Timestamp copies", "value": str(BackupPolicy.BACKUP)},
+        {"label": "None", "value": BackupPolicy.NONE.value},
+        {"label": "Versioned", "value": BackupPolicy.VERSIONED.value},
+        {"label": "Timestamp copies", "value": BackupPolicy.BACKUP.value},
     ]
-    db_backup = str(BackupPolicy.NONE)
+    db_backup = BackupPolicy.NONE.value
 
     return html.Div(
         [
@@ -43,13 +51,13 @@ def layout():
                             value=project_folder,
                             style={"width": "100%"},
                         ),
-                        html.H5("Dark mode"),
+                        html.H5("Theme"),
                         dbc.Checklist(
                             id="dark-mode-toggle",
                             options=[
                                 {"label": "Dark mode", "value": 1},
                             ],
-                            value=[],  # list of 'value's that are 'on' by default
+                            value=[1] if dark_mode else [],
                             inline=True,
                             switch=True,
                         ),
@@ -70,12 +78,7 @@ def layout():
                         dbc.Col(
                             dcc.Dropdown(
                                 id="db-backend-dropdown",
-                                options=[
-                                    {
-                                        "label": "Flat file (parquet)",
-                                        "value": "parquet",
-                                    },
-                                ],
+                                options=db_backend_list,
                                 value=db_backend,
                                 clearable=False,
                                 style={"width": "100%"},
@@ -112,15 +115,28 @@ def layout():
 
 
 @callback(
-    Output("project-info", "children"),
-    Input("project", "data"),
+    [
+        Output("project-info", "children"),
+        Output("db-backend-dropdown", "value"),
+        Output("db-backup-dropdown", "value"),
+    ],
+    [
+        Input("project", "data"),
+    ],
 )
 def update_project_info(project):
-    return html.Div(
-        [
-            "These settings apply to the current project: ",
-            html.B(project),
-        ]
+    projectObj = utils.get_project(project)
+    db_backend = projectObj.get_db_backend()
+    db_backup_policy = projectObj.get_db_backup_policy()
+    return (
+        html.Div(
+            [
+                "These settings apply to the current project: ",
+                html.B(project),
+            ]
+        ),
+        db_backend,
+        db_backup_policy,
     )
 
 
@@ -133,19 +149,12 @@ def update_project_folder(value):
 
 
 @callback(
-    Input("dark-mode", "data"),
+    Input("db-backend-dropdown", "value"),
+    State("project", "data"),
 )
-def update_dark_mode(value):
-    print("Dark mode:", value)
-
-
-def register_callbacks(app):
-    @callback(
-        Output("dark-mode", "data"),
-        Input("dark-mode-toggle", "value"),
-    )
-    def set_dark_mode(value):
-        return 1 in value
+def update_db_backend(db_backend, project):
+    projectObj = utils.get_project(project)
+    projectObj.set_db_backend(db_backend)
 
 
 @callback(
@@ -155,3 +164,15 @@ def register_callbacks(app):
 def update_db_backup(db_backup_policy, project):
     projectObj = utils.get_project(project)
     projectObj.set_db_backup_policy(db_backup_policy)
+
+
+@callback(
+    Output("dark-mode", "data"),
+    Input("dark-mode-toggle", "value"),
+)
+def update_dark_mode(value):
+    config = ConfigManager()
+    dark_mode = 1 in value
+    config.set("theme.dark_mode", dark_mode)
+    config.save()
+    return dark_mode

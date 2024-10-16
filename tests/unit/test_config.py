@@ -112,6 +112,42 @@ def test_get_project_folder(): ...
 def test_get_default_project(): ...
 
 
+def test_get_simple_key():
+    manager = ConfigManager()
+    manager.config = {"name": "Alice"}
+    assert manager.get("name", None) == "Alice"
+
+
+def test_get_missing_key():
+    manager = ConfigManager()
+    manager.config = {"name": "Alice"}
+    assert not manager.get("age", None)
+
+
+def test_get_nested_key():
+    manager = ConfigManager()
+    manager.config = {"person": {"name": "Bob"}}
+    assert manager.get("person.name", None) == "Bob"
+
+
+def test_get_deeply_nested_key():
+    manager = ConfigManager()
+    manager.config = {"a": {"b": {"c": {"d": {"e": "value"}}}}}
+    assert manager.get("a.b.c.d.e", None) == "value"
+
+
+def test_get_deeply_nested_missing_key():
+    manager = ConfigManager()
+    manager.config = {"a": {"b": {"c": {"d": {"e": "value"}}}}}
+    assert not manager.get("a.b.d.e", None)
+
+
+def test_get_default_value():
+    manager = ConfigManager()
+    manager.config = {"name": "Alice"}
+    assert manager.get("age", 30) == 30
+
+
 def test_set_simple_key():
     manager = ConfigManager()
     manager.set("name", "Alice")

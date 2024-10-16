@@ -15,6 +15,7 @@ dependencies = [
     "tomli-w>=1.0.0",
     "waitress>=3.0.0",
     "cachetools>=5.5.0",
+    "dash-bootstrap-templates>=1.2.4",
 ]
 scripts = { InsightBoard = "InsightBoard:main" }
 dynamic = ["version"]

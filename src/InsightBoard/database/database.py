@@ -14,6 +14,7 @@ from cachetools import cached, TTLCache
 
 class DatabaseBackend(Enum):
     PARQUET = "parquet"
+    PARQUET_VERSIONED = "parquet_versioned"
 
 
 class WritePolicy(Enum):

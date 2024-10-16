@@ -1,6 +1,9 @@
+import os
 import tomllib
 import tomli_w
 import logging
+import platform
+
 from pathlib import Path
 
 
@@ -15,7 +18,7 @@ class ConfigManager:
 
     def __init__(self):
         # Define the path to the config file in the user's home directory
-        self.config_dir = Path.home() / ".insightboard"
+        self.config_dir = self.get_config_base() / "InsightBoard"
         self.config_file = self.config_dir / "config.toml"
 
         # Default configuration
@@ -27,6 +30,13 @@ class ConfigManager:
 
         # Ensure the config file exists and load the config
         self.config = self.load_and_merge_config()
+
+    def get_config_base(self) -> Path:
+        """Get the base configuration dictionary."""
+        if platform.system() == "Windows":
+            return Path(os.getenv("APPDATA"))
+        else:
+            return Path.home() / ".config"
 
     def ensure_config_exists(self):
         """Check if the config file exists, and create it with default values if it doesn't."""
@@ -88,13 +98,23 @@ class ConfigManager:
         """Get the default project from the configuration."""
         return self.config.get("project", {}).get("default", None)
 
-    def set(self, key, value):
+    def get(self, key, default=None):
+        """Get a key from the configuration, with a default value."""
+        keys = key.split(".")
+        d = self.config
+        for key in keys:
+            d = d.get(key, {})
+        return d or default
+
+    def set(self, key, value, save=True):
         """Set a key in the configuration."""
         keys = key.split(".")
         d = self.config  # Reference to dictionary
         for key in keys[:-1]:
             d = d.setdefault(key, {})
         d[keys[-1]] = value
+        if save:
+            self.save()
 
     def save(self):
         """Save the configuration to the TOML file."""

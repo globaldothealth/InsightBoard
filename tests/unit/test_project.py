@@ -72,6 +72,7 @@ def project():
         mock_projects_folder.return_value = "/projects"
         with patch("InsightBoard.project.project.Path") as mock_path:
             mock_path.return_value = mock_Path("/projects/project_name")
+            mock_path.exists.return_value = True
             project = Project("project_name")
     return project
 

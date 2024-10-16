@@ -1,8 +1,9 @@
 import sys
 import dash
+import dash_bootstrap_templates as dbt
 import dash_bootstrap_components as dbc
 
-from dash import dcc, html, Input, Output
+from dash import dcc, html, callback, Input, Output
 from pathlib import Path
 
 from InsightBoard.config import ConfigManager
@@ -34,6 +35,8 @@ custom_css = (
 )
 cogwheel = (html.I(className="fas fa-cog"),)
 pages_path = base_path / "pages"
+config = ConfigManager()
+dark_mode = config.get("theme.dark_mode", False)
 
 app = dash.Dash(
     __name__,
@@ -94,7 +97,7 @@ def ProjectDropDown():
     )
 
 
-@app.callback(Output("project", "data"), Input("project-dropdown", "value"))
+@callback(Output("project", "data"), Input("project-dropdown", "value"))
 def store_selected_project(project):
     config = ConfigManager()
     if project:
@@ -106,7 +109,19 @@ def store_selected_project(project):
 app.layout = dbc.Container(
     [
         dcc.Store(id="project", data=default_project),
-        dcc.Store(id="dark-mode", data=False),
+        dcc.Store(id="dark-mode", data=dark_mode),
+        html.Div(
+            [
+                dbt.ThemeSwitchAIO(
+                    aio_id="theme",
+                    themes=[
+                        dbc.themes.BOOTSTRAP,
+                        dbc.themes.DARKLY,
+                    ],
+                ),
+            ],
+            style={'display': 'none'}
+        ),
         dbc.NavbarSimple(
             children=[
                 dbc.NavLink("Home", href="/"),
@@ -135,18 +150,6 @@ app.layout = dbc.Container(
         html.Div(dash.page_container, id="page-content"),
     ],
 )
-
-
-@app.callback(
-    Output("app-container", "external_stylesheets"),
-    Input("dark-mode", "data"),
-)
-def apply_dark_mode(dark_mode):
-    print("Dark mode trigger (app.py): ", dark_mode)
-    if dark_mode:
-        return dbc.themes.DARKLY
-    else:
-        return dbc.themes.BOOTSTRAP
 
 
 # Client-side callback to check server status every second
@@ -179,3 +182,14 @@ app.clientside_callback(
     Output("server-status", "children"),
     Input("interval", "n_intervals"),
 )
+
+
+@callback(
+    Output(dbt.ThemeSwitchAIO.ids.switch("theme"), "value"),
+    Input("project", "data"),
+    Input("dark-mode", "data"),
+)
+def set_theme(project, dark_mode):
+    config = ConfigManager()
+    dark_mode = config.get("theme.dark_mode", False)
+    return not dark_mode

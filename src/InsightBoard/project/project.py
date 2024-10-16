@@ -72,11 +72,13 @@ class Project:
                 f"Project '{self.name}' does not exist in '{self.projects_folder}'."
             )
         self.default_config = {
-            "name": self.name,
+            "project": {
+                "name": self.name,
+            },
             "database": {
-                "backend": "parquet",
+                "backend": DatabaseBackend.PARQUET.value,
                 "data_folder": "data",
-                "backup_policy": BackupPolicy.NONE,
+                "backup_policy": BackupPolicy.NONE.value,
             },
         }
         self.config = self.load_config()
@@ -99,10 +101,30 @@ class Project:
         with open(config_path, "wb") as f:
             tomli_w.dump(self.config, f)
 
-    def set_db_backup_policy(self, policy):
+    def set_db_backup_policy(self, policy: BackupPolicy | str):
+        if isinstance(policy, BackupPolicy):
+            policy = policy.value
+        opts = [v.value for v in BackupPolicy.__members__.values()]
+        if policy not in opts:
+            raise ValueError(f"Invalid BackupPolicy value: {policy} (options are: {opts})")
         self.database.set_backup_policy(policy)
         self.config["database"]["backup_policy"] = policy
         self.save_config()
+
+    def get_db_backup_policy(self):
+        return self.config["database"]["backup_policy"]
+
+    def set_db_backend(self, backend: DatabaseBackend | str):
+        if isinstance(backend, DatabaseBackend):
+            backend = backend.value
+        opts = [v.value for v in DatabaseBackend.__members__.values()]
+        if backend not in opts:
+            raise ValueError(f"Invalid DatabaseBackend value: {backend} (options are: {opts})")
+        self.config["database"]["backend"] = backend
+        self.save_config()
+
+    def get_db_backend(self):
+        return self.config["database"]["backend"]
 
     def get_reports_folder(self):
         return f"{self.project_folder}/reports"
