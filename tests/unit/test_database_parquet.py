@@ -384,7 +384,12 @@ def test_write_table_parquet_versioned__primary_key_upsert(db_parquet_versioned)
         "InsightBoard.database.database.DatabaseParquet.get_primary_key"
     ) as mock_get_primary_key:
         mock_get_primary_key.return_value = "col1"
-        df = pd.DataFrame({"col1": [1, 3, 4, 5], "col2": [7, 8, 9, 10]})
+        # Add the following:
+        #  row 1: (no change, value remains 4); v1 retained
+        #  row 3: (update, value changes from 6 to 8); v2 created
+        #  row 4: (insert, new row)
+        #  row 5: (insert, new row)
+        df = pd.DataFrame({"col1": [1, 3, 4, 5], "col2": [4, 8, 9, 10]})
         with patch("InsightBoard.database.database.datetime") as mock_datetime:
             mock_datetime.now.return_value = datetime(2022, 3, 2, 4, 5, 6)
             db.write_table_parquet(table_name, df, write_policy, backup_policy)
@@ -392,12 +397,12 @@ def test_write_table_parquet_versioned__primary_key_upsert(db_parquet_versioned)
     db1 = pd.read_parquet(db.data_folder + "/table1." + db.suffix).sort_values("col1")
     df_composite = pd.DataFrame(
         {
-            "col1": [1, 2, 3, 1, 3, 4, 5],
-            "col2": [4, 5, 6, 7, 8, 9, 10],
-            "_version": [1, 1, 1, 2, 2, 1, 1],
-            "_deleted": [False] * 7,
+            "col1": [1, 2, 3, 3, 4, 5],
+            "col2": [4, 5, 6, 8, 9, 10],
+            "_version": [1, 1, 1, 2, 1, 1],
+            "_deleted": [False] * 6,
             "_metadata": ['{"timestamp": "2021-02-01T01:02:03"}'] * 3
-            + ['{"timestamp": "2022-03-02T04:05:06"}'] * 4,
+            + ['{"timestamp": "2022-03-02T04:05:06"}'] * 3,
         }
     ).sort_values("col1")
     # upsert policy (rows 2 and 3 update)
@@ -411,7 +416,7 @@ def test_write_table_parquet_versioned__primary_key_upsert(db_parquet_versioned)
     df2_check = pd.DataFrame(
         {
             "col1": [1, 2, 3, 4, 5],
-            "col2": [7, 5, 8, 9, 10],
+            "col2": [4, 5, 8, 9, 10],
         }
     )
     df2 = df2.sort_values("col1")

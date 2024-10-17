@@ -162,9 +162,9 @@ class Project:
         if not data_folder.exists():
             return []
         return [
-            {"filename": f, "label": f.with_suffix("").name}
+            {"filename": f, "label": f.name[: -len(self.database.suffix) - 1]}
             for f in data_folder.iterdir()
-            if f.is_file() and f.suffix == ".parquet"
+            if f.is_file() and f.name.endswith(self.database.suffix)
         ]
 
     def get_project_parsers(self):
@@ -187,7 +187,7 @@ class Project:
                 f"Available datasets: {[d['label'] for d in project_datasets]}"
             )
         datasets = [d for d in project_datasets if d["label"] in datasets]
-        return [pd.read_parquet(f"{d['filename']}") for d in datasets]
+        return [self.database.read_table(d["label"]) for d in datasets]
 
     def load_and_parse(self, filename, contents, selected_parser):
         content_type, content_string = contents.split(",")

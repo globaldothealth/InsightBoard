@@ -312,13 +312,35 @@ class DatabaseParquetVersioned(DatabaseParquet):
     def dataframe_upsert(self, df, old_df, primary_key):
         # Create new versions of existing records
         df = df.copy()
+        # Make a copy of the old data frame returning only the most recent version of each record
+        filtered_old_df = old_df.sort_values(by=["_version"]).drop_duplicates(
+            subset=primary_key, keep="last"
+        )
+        # Remove deleted records
+        filtered_old_df = filtered_old_df[filtered_old_df["_deleted"] == False]  # noqa: E712
+        # Remove new rows where:
+        #  1. the primary key is already in the filtered (most recent) old DataFrame
+        #  2. there is no change to the remaining row data
+        data_columns = df.columns.difference(["_version", "_deleted", "_metadata"])
+        for key in df[primary_key]:
+            if key in filtered_old_df[primary_key].values:
+                if df.loc[df[primary_key] == key].equals(
+                    filtered_old_df.loc[
+                        filtered_old_df[primary_key] == key, data_columns
+                    ]
+                ):
+                    df = df[df[primary_key] != key]
+        # Add metadata columns to the remaining DataFrame
         df.loc[:, ["_version"]] = 1
         df.loc[:, ["_deleted"]] = False
         df.loc[:, ["_metadata"]] = self.row_metadata()
         for key in df[primary_key]:
-            if key in old_df[primary_key].values:
+            if key in filtered_old_df[primary_key].values:
                 df.loc[df[primary_key] == key, "_version"] = (
-                    old_df.loc[old_df[primary_key] == key, "_version"].max() + 1
+                    filtered_old_df.loc[
+                        filtered_old_df[primary_key] == key, "_version"
+                    ].max()
+                    + 1
                 )
         # Combine old and new DataFrames (versioned)
         return pd.concat([old_df, df], ignore_index=True)
