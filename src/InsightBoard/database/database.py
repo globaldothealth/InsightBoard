@@ -17,6 +17,12 @@ class DatabaseBackend(Enum):
     PARQUET_VERSIONED = "parquet_versioned"
 
 
+DatabaseBackendVersion = {
+    DatabaseBackend.PARQUET: "1.0.0",
+    DatabaseBackend.PARQUET_VERSIONED: "1.0.0",
+}
+
+
 class WritePolicy(Enum):
     APPEND = "append"  # Append new data, do not overwrite existing records
     UPSERT = "upsert"  # Update existing records, insert new records
@@ -24,8 +30,9 @@ class WritePolicy(Enum):
 
 class BackupPolicy(Enum):
     NONE = "none"
-    VERSIONED = "versioned"  # Versioned records are kept in the tables
-    BACKUP = "backup"  # Backup the table before writing new data
+    TIMESTAMPED_COPIES = (
+        "timestamped_copies"  # Backup the table before writing new data
+    )
 
 
 class DatabaseBase(ABC):
@@ -106,6 +113,10 @@ class DatabaseBase(ABC):
         return schema
 
     @abstractmethod
+    def db_metadata(self):
+        pass  # pragma: no cover
+
+    @abstractmethod
     def get_tables_list(self):
         pass  # pragma: no cover
 
@@ -126,6 +137,14 @@ class DatabaseParquet(DatabaseBase):
     def __init__(self, data_folder: str = ""):
         super().__init__(DatabaseBackend.PARQUET, data_folder)
         self.suffix = "parquet"
+        self.db_version = DatabaseBackendVersion[self.BACKEND]
+
+    # override
+    def db_metadata(self):
+        return {
+            "version": self.db_version,
+            "last_updated": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+        }
 
     # override
     def get_tables_list(self):
@@ -157,11 +176,15 @@ class DatabaseParquet(DatabaseBase):
 
     def backup(self, file_path, backup_policy: BackupPolicy = None):
         backup_policy = backup_policy or self.backup_policy
-        if backup_policy == BackupPolicy.BACKUP:
+        if backup_policy == BackupPolicy.TIMESTAMPED_COPIES:
             backup_folder = Path(self.data_folder) / "backup"
             backup_folder.mkdir(parents=True, exist_ok=True)
             datetime_stamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
-            shutil.copy(file_path, f"{file_path.stem}_{datetime_stamp}_.backup")
+            file_stem = file_path.stem
+            shutil.copy(
+                file_path,
+                backup_folder / f"{file_stem}_{datetime_stamp}_.{self.suffix}",
+            )
 
     def write_table_parquet(
         self,
@@ -205,13 +228,14 @@ class DatabaseParquet(DatabaseBase):
             combined_df = self.dataframe_new(df)
         # Write the updated DataFrame to the Parquet file
         table = Table.from_pandas(combined_df)
+        table = table.replace_schema_metadata(self.db_metadata())  # Add metadata
         pq.write_table(table, file_path)
         # Create a timestamped version of the database as a backup
         self.backup(file_path)
 
     def dataframe_new(self, df):
         # Create a new DataFrame
-        return df
+        return df.copy()
 
     def dataframe_append(self, df, old_df, primary_key):
         # Remove matching keys from the new DataFrame
@@ -231,28 +255,66 @@ class DatabaseParquetVersioned(DatabaseParquet):
         super().__init__(data_folder)
         self.BACKEND = DatabaseBackend.PARQUET_VERSIONED
         self.suffix = "ver.parquet"
+        self.db_version = DatabaseBackendVersion[self.BACKEND]
 
+    # override (DatabaseBase)
+    def read_table(self, table_name: str) -> pd.DataFrame:
+        # Use DatabaseParquet implementation to read the table
+        table = super().read_table(table_name)
+        # Remove deleted records
+        table = table[table["_deleted"] == False]  # noqa: E712
+        # Return only the most recent version of each record
+        table = table.sort_values(by=["_version"]).drop_duplicates(
+            subset=self.get_primary_key(table_name), keep="last"
+        )
+        # Remove metadata columns
+        table = table.drop(columns=["_version", "_deleted", "_metadata"])
+        # Restore ordering
+        table = table.sort_index()
+        return table
+
+    # override (DatabaseBase)
+    def read_table_column(self, table_name: str, column_name: str) -> pd.Series:
+        return self.read_table(table_name)[column_name]
+
+    # Utility function
+    def row_metadata(self, data: dict = None):
+        # Convert metadata to JSON string
+        if not data:
+            data = {}
+        data_required = {
+            "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+        }
+        data = {**data_required, **data}
+        return json.dumps(data)
+
+    # override (DatabaseParquet)
     def dataframe_new(self, df):
         # Add metadata columns to the new DataFrame
+        df = df.copy()
         df.loc[:, ["_version"]] = 1
         df.loc[:, ["_deleted"]] = False
-        df.loc[:, ["_datetime"]] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+        df.loc[:, ["_metadata"]] = self.row_metadata()
         return df
 
+    # override (DatabaseParquet)
     def dataframe_append(self, df, old_df, primary_key):
         # Remove matching keys from the new DataFrame
+        df = df.copy()
         df = df[~df[primary_key].isin(old_df[primary_key])]
         # Combine old and new DataFrames (no duplicate primary keys)
         df.loc[:, ["_version"]] = 1
         df.loc[:, ["_deleted"]] = False
-        df.loc[:, ["_datetime"]] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+        df.loc[:, ["_metadata"]] = self.row_metadata()
         return pd.concat([old_df, df], ignore_index=True)
 
+    # override (DatabaseParquet)
     def dataframe_upsert(self, df, old_df, primary_key):
         # Create new versions of existing records
+        df = df.copy()
         df.loc[:, ["_version"]] = 1
         df.loc[:, ["_deleted"]] = False
-        df.loc[:, ["_datetime"]] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+        df.loc[:, ["_metadata"]] = self.row_metadata()
         for key in df[primary_key]:
             if key in old_df[primary_key].values:
                 df.loc[df[primary_key] == key, "_version"] = (

@@ -1,3 +1,5 @@
+"""Unit tests for the Parquet and Versioned-Parquet database backends."""
+
 import json
 import pytest
 import pandas as pd
@@ -20,6 +22,10 @@ def db_parquet():
 def db_parquet_versioned():
     with TemporaryDirectory() as temp_dir:
         yield Database(DatabaseBackend.PARQUET_VERSIONED, temp_dir)
+
+
+def drop_metadata(df):
+    return df.drop(columns=["_version", "_deleted", "_metadata"], errors="ignore")
 
 
 @pytest.mark.parametrize(
@@ -47,10 +53,7 @@ def test_DatabaseParquet_commit_tables_dict__single(request, backend):
     dataset = {"col1": [1, 2, 3], "col2": [4, 5, 6]}
     db.commit_tables_dict(table_name, dataset)
     # Read and check parquet files
-    db1 = pd.read_parquet(db.data_folder + "/table1." + db.suffix)
-    db1.drop(
-        columns=["_version", "_deleted", "_datetime"], inplace=True, errors="ignore"
-    )
+    db1 = drop_metadata(pd.read_parquet(db.data_folder + "/table1." + db.suffix))
     assert db1.equals(pd.DataFrame(dataset))
 
 
@@ -86,15 +89,9 @@ def test_DatabaseParquet_commit_tables_dict__list(request, backend):
     datasets = [ds1, ds2]
     db.commit_tables_dict(table_names, datasets)
     # Read and check parquet files
-    db1 = pd.read_parquet(db.data_folder + "/table1." + db.suffix)
-    db1.drop(
-        columns=["_version", "_deleted", "_datetime"], inplace=True, errors="ignore"
-    )
+    db1 = drop_metadata(pd.read_parquet(db.data_folder + "/table1." + db.suffix))
     assert db1.equals(pd.DataFrame(ds1))
-    db2 = pd.read_parquet(db.data_folder + "/table2." + db.suffix)
-    db2.drop(
-        columns=["_version", "_deleted", "_datetime"], inplace=True, errors="ignore"
-    )
+    db2 = drop_metadata(pd.read_parquet(db.data_folder + "/table2." + db.suffix))
     assert db2.equals(pd.DataFrame(ds2))
 
 
@@ -111,7 +108,7 @@ def test_commit_tables__single(request, backend):
     dataset = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
     db.commit_tables(table_name, dataset)
     # Read and check parquet files
-    db1 = pd.read_parquet(db.data_folder + "/table1." + db.suffix)
+    db1 = drop_metadata(pd.read_parquet(db.data_folder + "/table1." + db.suffix))
     assert db1.equals(dataset)
 
 
@@ -148,9 +145,9 @@ def test_commit_tables__list(request, backend):
     ]
     db.commit_tables(table_names, datasets)
     # Read and check parquet files
-    db1 = pd.read_parquet(db.data_folder + "/table1." + db.suffix)
+    db1 = drop_metadata(pd.read_parquet(db.data_folder + "/table1." + db.suffix))
     assert db1.equals(datasets[0])
-    db2 = pd.read_parquet(db.data_folder + "/table2." + db.suffix)
+    db2 = drop_metadata(pd.read_parquet(db.data_folder + "/table2." + db.suffix))
     assert db2.equals(datasets[1])
 
 
@@ -309,7 +306,7 @@ def test_read_table(request, backend):
     db = request.getfixturevalue(backend)
     table_name = "table1"
     dataset = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
-    db.commit_tables(table_name, dataset)
+    db.commit_table(table_name, dataset)
     result = db.read_table(table_name)
     assert result.equals(dataset)
 
@@ -327,7 +324,7 @@ def test_commit_table(request, backend):
     df = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
     db.commit_table(table_name, df)
     # Read and check parquet file
-    db1 = pd.read_parquet(db.data_folder + "/table1." + db.suffix)
+    db1 = drop_metadata(pd.read_parquet(db.data_folder + "/table1." + db.suffix))
     assert db1.equals(df)
 
 
@@ -344,7 +341,7 @@ def test_write_table_parquet(request, backend):
     df = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
     db.write_table_parquet(table_name, df)
     # Read and check parquet file
-    db1 = pd.read_parquet(db.data_folder + "/table1." + db.suffix)
+    db1 = drop_metadata(pd.read_parquet(db.data_folder + "/table1." + db.suffix))
     assert db1.equals(df)
 
 
@@ -399,11 +396,27 @@ def test_write_table_parquet_versioned__primary_key_upsert(db_parquet_versioned)
             "col2": [4, 5, 6, 7, 8, 9, 10],
             "_version": [1, 1, 1, 2, 2, 1, 1],
             "_deleted": [False] * 7,
-            "_datetime": ["2021-02-01T01:02:03"] * 3 + ["2022-03-02T04:05:06"] * 4,
+            "_metadata": ['{"timestamp": "2021-02-01T01:02:03"}'] * 3
+            + ['{"timestamp": "2022-03-02T04:05:06"}'] * 4,
         }
     ).sort_values("col1")
     # upsert policy (rows 2 and 3 update)
     assert (db1.values == df_composite.values).all()
+    # Check that the database returns only the most recent version of each row
+    with patch(
+        "InsightBoard.database.database.DatabaseParquet.get_primary_key"
+    ) as mock_get_primary_key:
+        mock_get_primary_key.return_value = "col1"
+        df2 = db.read_table("table1")
+    df2_check = pd.DataFrame(
+        {
+            "col1": [1, 2, 3, 4, 5],
+            "col2": [7, 5, 8, 9, 10],
+        }
+    )
+    df2 = df2.sort_values("col1")
+    df2_check = df2_check.sort_values("col1")
+    assert (df2.values == df2_check.values).all()
 
 
 def test_write_table_parquet__primary_key_append(db_parquet):
@@ -460,7 +473,8 @@ def test_write_table_parquet_versioned__primary_key_append(db_parquet_versioned)
             "col2": [4, 5, 6, 9, 10],
             "_version": [1] * 5,
             "_deleted": [False] * 5,
-            "_datetime": ["2021-02-01T01:02:03"] * 3 + ["2022-03-02T04:05:06"] * 2,
+            "_metadata": ['{"timestamp": "2021-02-01T01:02:03"}'] * 3
+            + ['{"timestamp": "2022-03-02T04:05:06"}'] * 2,
         }
     ).sort_values("col1")
     # append policy (rows 2 and 3 do not update)

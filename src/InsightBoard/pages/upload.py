@@ -929,7 +929,9 @@ def parse_data(project, contents, filename, selected_parser):
     except Exception as e:
         return (
             dbc.Alert(
-                f"There was an error processing the file: {str(e)}", color="danger"
+                f"There was an error processing the file: {str(e)}. "
+                "Have you selected a compatible parser?",
+                color="danger",
             ),
             None,
             [],

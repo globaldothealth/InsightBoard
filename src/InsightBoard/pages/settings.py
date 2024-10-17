@@ -5,7 +5,7 @@ from dash import html, dcc, callback, Input, Output, State
 
 import InsightBoard.utils as utils
 from InsightBoard.config import ConfigManager
-from InsightBoard.database import BackupPolicy
+from InsightBoard.database import DatabaseBackend, BackupPolicy
 
 # Register the page
 dash.register_page(__name__, path="/settings")
@@ -20,21 +20,27 @@ def layout():
     dark_mode = config.get("theme.dark_mode", False)
 
     db_backend_list = [
-        {"label": "Flat file (Parquet, unversioned)", "value": "parquet"},
-        {"label": "Flat file (Parquet, versioned)", "value": "parquet_versioned"},
+        {
+            "label": "Flat file (Parquet, unversioned)",
+            "value": DatabaseBackend.PARQUET.name,
+        },
+        {
+            "label": "Flat file (Parquet, versioned)",
+            "value": DatabaseBackend.PARQUET_VERSIONED.name,
+        },
     ]
-    db_backend = "parquet"
+    db_backend = DatabaseBackend.PARQUET.name
 
     db_backup_policy_list = [
-        {"label": "None", "value": BackupPolicy.NONE.value},
-        {"label": "Versioned", "value": BackupPolicy.VERSIONED.value},
-        {"label": "Timestamp copies", "value": BackupPolicy.BACKUP.value},
+        {"label": "None", "value": BackupPolicy.NONE.name},
+        {"label": "Timestamp copies", "value": BackupPolicy.TIMESTAMPED_COPIES.name},
     ]
-    db_backup = BackupPolicy.NONE.value
+    db_backup = BackupPolicy.NONE.name
 
     return html.Div(
         [
             # Store
+            dcc.Store(id="project"),
             html.H1(
                 "Settings",
                 style={
@@ -73,9 +79,10 @@ def layout():
                 dbc.CardBody(
                     [
                         html.H4("Project settings"),
-                        html.P(
+                        dbc.Alert(
                             "These settings apply to the current project: {project}",
                             id="project-info",
+                            color="info",
                         ),
                         html.H5("Database"),
                         html.H6("Backend"),
@@ -139,8 +146,8 @@ def update_project_info(project):
                 html.B(project),
             ]
         ),
-        db_backend,
-        db_backup_policy,
+        db_backend.name,
+        db_backup_policy.name,
     )
 
 
@@ -158,7 +165,7 @@ def update_project_folder(value):
 )
 def update_db_backend(db_backend, project):
     projectObj = utils.get_project(project)
-    projectObj.set_db_backend(db_backend)
+    projectObj.set_db_backend(DatabaseBackend[db_backend])
 
 
 @callback(
@@ -167,7 +174,7 @@ def update_db_backend(db_backend, project):
 )
 def update_db_backup(db_backup_policy, project):
     projectObj = utils.get_project(project)
-    projectObj.set_db_backup_policy(db_backup_policy)
+    projectObj.set_db_backup_policy(BackupPolicy[db_backup_policy])
 
 
 @callback(

@@ -66,14 +66,22 @@ def test_get_custom_assets_folder__not_exists():
 
 @pytest.fixture
 def project():
-    with patch(
-        "InsightBoard.project.project.get_projects_folder"
-    ) as mock_projects_folder:
+    path_exists = Path.exists  # Rename to prevent recursive calls
+
+    # Mock existence of the project folder
+    def mock_path_exists(self):
+        if self.name == "project_name":
+            return True
+        return path_exists(self)
+
+    with (
+        patch(
+            "InsightBoard.project.project.get_projects_folder"
+        ) as mock_projects_folder,
+        patch("pathlib.Path.exists", new=mock_path_exists),
+    ):
         mock_projects_folder.return_value = "/projects"
-        with patch("InsightBoard.project.project.Path") as mock_path:
-            mock_path.return_value = mock_Path("/projects/project_name")
-            mock_path.exists.return_value = True
-            project = Project("project_name")
+        project = Project("project_name")
     return project
 
 

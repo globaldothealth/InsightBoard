@@ -76,15 +76,18 @@ class Project:
                 "name": self.name,
             },
             "database": {
-                "backend": DatabaseBackend.PARQUET.value,
+                "backend": DatabaseBackend.PARQUET.name,
                 "data_folder": "data",
-                "backup_policy": BackupPolicy.NONE.value,
+                "backup_policy": BackupPolicy.NONE.name,
             },
         }
         self.config = self.load_config()
+        # Initialise database
         self.database = Database(
-            backend=DatabaseBackend.PARQUET, data_folder=self.get_data_folder()
+            backend=self.get_db_backend(),
+            data_folder=self.get_data_folder(),
         )
+        self.database.set_backup_policy(self.get_db_backup_policy())
 
     def load_config(self):
         config_path = Path(self.project_folder) / "config.toml"
@@ -101,37 +104,30 @@ class Project:
         with open(config_path, "wb") as f:
             tomli_w.dump(self.config, f)
 
-    def set_db_backup_policy(self, policy: BackupPolicy | str):
-        if isinstance(policy, BackupPolicy):
-            policy = policy.value
-        opts = [v.value for v in BackupPolicy.__members__.values()]
-        if policy not in opts:
-            raise ValueError(
-                f"Invalid BackupPolicy value: {policy} (options are: {opts})"
-            )
+    def set_db_backup_policy(self, policy: BackupPolicy):
+        if not isinstance(policy, BackupPolicy):
+            raise ValueError("Backup policy must be a BackupPolicy enum.")
+        # Set the backup policy in the database
         self.database.set_backup_policy(policy)
-        self.config["database"]["backup_policy"] = policy
+        # Update configuration
+        self.config["database"]["backup_policy"] = policy.name
         self.save_config()
 
     def get_db_backup_policy(self):
-        return self.config["database"]["backup_policy"]
+        return BackupPolicy[self.config["database"]["backup_policy"]]
 
-    def set_db_backend(self, backend: DatabaseBackend | str):
-        if isinstance(backend, DatabaseBackend):
-            backend = backend.value
-        opts = [v.value for v in DatabaseBackend.__members__.values()]
-        if backend not in opts:
-            raise ValueError(
-                f"Invalid DatabaseBackend value: {backend} (options are: {opts})"
-            )
+    def set_db_backend(self, backend: DatabaseBackend):
+        if not isinstance(backend, DatabaseBackend):
+            raise ValueError("Database backend must be a DatabaseBackend enum.")
         # Create a new database backend
         self.database = Database(backend=backend, data_folder=self.get_data_folder())
+        self.database.set_backup_policy(self.get_db_backup_policy())
         # Update configuration
-        self.config["database"]["backend"] = backend
+        self.config["database"]["backend"] = backend.name
         self.save_config()
 
     def get_db_backend(self):
-        return self.config["database"]["backend"]
+        return DatabaseBackend[self.config["database"]["backend"]]
 
     def get_reports_folder(self):
         return f"{self.project_folder}/reports"
