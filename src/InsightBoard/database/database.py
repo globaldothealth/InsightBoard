@@ -209,7 +209,7 @@ class DatabaseParquet(DatabaseBase):
             old_df = pq.read_table(file_path).to_pandas()
             if not primary_key:
                 # No primary key, just append the new data
-                combined_df = pd.concat([old_df, df], ignore_index=True)
+                combined_df = self.dataframe_append(df, old_df, primary_key=None)
             if primary_key not in df.columns:
                 raise ValueError(
                     f"Critical error - primary key '{primary_key}' not found in existing database."
@@ -237,7 +237,10 @@ class DatabaseParquet(DatabaseBase):
         # Create a new DataFrame
         return df.copy()
 
-    def dataframe_append(self, df, old_df, primary_key):
+    def dataframe_append(self, df, old_df, primary_key=None):
+        if not primary_key:
+            # Combine old and new DataFrames (no duplicate primary keys)
+            return pd.concat([old_df, df], ignore_index=True)
         # Remove matching keys from the new DataFrame
         df = df[~df[primary_key].isin(old_df[primary_key])]
         # Combine old and new DataFrames (no duplicate primary keys)
@@ -301,7 +304,8 @@ class DatabaseParquetVersioned(DatabaseParquet):
     def dataframe_append(self, df, old_df, primary_key):
         # Remove matching keys from the new DataFrame
         df = df.copy()
-        df = df[~df[primary_key].isin(old_df[primary_key])]
+        if primary_key:
+            df = df[~df[primary_key].isin(old_df[primary_key])]
         # Combine old and new DataFrames (no duplicate primary keys)
         df.loc[:, ["_version"]] = 1
         df.loc[:, ["_deleted"]] = False
@@ -312,6 +316,7 @@ class DatabaseParquetVersioned(DatabaseParquet):
     def dataframe_upsert(self, df, old_df, primary_key):
         # Create new versions of existing records
         df = df.copy()
+        #
         # Make a copy of the old data frame returning only the most recent version of each record
         filtered_old_df = old_df.sort_values(by=["_version"]).drop_duplicates(
             subset=primary_key, keep="last"
@@ -324,23 +329,21 @@ class DatabaseParquetVersioned(DatabaseParquet):
         data_columns = df.columns.difference(["_version", "_deleted", "_metadata"])
         for key in df[primary_key]:
             if key in filtered_old_df[primary_key].values:
-                if df.loc[df[primary_key] == key].equals(
-                    filtered_old_df.loc[
-                        filtered_old_df[primary_key] == key, data_columns
-                    ]
-                ):
+                df1 = df.loc[df[primary_key] == key].reset_index(drop=True)
+                df2 = filtered_old_df.loc[
+                    filtered_old_df[primary_key] == key, data_columns
+                ].reset_index(drop=True)
+                if df1.equals(df2):
                     df = df[df[primary_key] != key]
         # Add metadata columns to the remaining DataFrame
         df.loc[:, ["_version"]] = 1
         df.loc[:, ["_deleted"]] = False
         df.loc[:, ["_metadata"]] = self.row_metadata()
+        # Index on old_df (not filtered_old_df) to prevent skipping deleted records
         for key in df[primary_key]:
-            if key in filtered_old_df[primary_key].values:
+            if key in old_df[primary_key].values:
                 df.loc[df[primary_key] == key, "_version"] = (
-                    filtered_old_df.loc[
-                        filtered_old_df[primary_key] == key, "_version"
-                    ].max()
-                    + 1
+                    old_df.loc[old_df[primary_key] == key, "_version"].max() + 1
                 )
         # Combine old and new DataFrames (versioned)
         return pd.concat([old_df, df], ignore_index=True)

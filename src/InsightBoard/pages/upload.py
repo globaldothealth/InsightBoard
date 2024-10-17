@@ -209,7 +209,6 @@ def layout():
                         "Commit to Database",
                         id="commit-button",
                         n_clicks=0,
-                        disabled=True,
                         style={
                             "float": "right",
                             "margin": "10px",
@@ -1149,7 +1148,6 @@ def display_confirm_dialog(n_clicks, table_names):
 # Commit changes to the database
 @callback(
     Output("commit-output", "children"),  # Update the commit output message ...
-    Output("commit-button", "disabled"),  # ... and disable the commit button
     Input("confirm-commit-dialog", "submit_n_clicks"),  # Triggered by 'Confirm' dialog
     State("project", "data"),
     State("imported-tables-dropdown", "options"),
@@ -1174,10 +1172,8 @@ def commit_to_database(
                     for row in datasets[i]
                 ]
             projectObj.database.commit_tables_dict(table_names, datasets)
-            return dbc.Alert("Data committed to database.", color="success"), True
+            return dbc.Alert("Data committed to database.", color="success")
         except Exception as e:
-            return dbc.Alert(
-                f"Error committing data to file: {str(e)}", color="danger"
-            ), False
+            return dbc.Alert(f"Error committing data to file: {str(e)}", color="danger")
 
-    return "No data committed yet.", False
+    return "No data committed yet."
