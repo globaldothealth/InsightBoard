@@ -216,6 +216,20 @@ wheels = [
 ]
 
 [[package]]
+name = "dash-bootstrap-templates"
+version = "1.2.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "dash" },
+    { name = "dash-bootstrap-components" },
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c5/a6/40a3db87c1366c278a678ce2a17d5fb2390dcfe22ab0659f3e9f5d6dc1a4/dash_bootstrap_templates-1.2.4.tar.gz", hash = "sha256:7e15f45fcc17a8ac4ba49a261c9168476330f6a835adeb261b06c7c5f434baa6", size = 110530 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/38/63/cbe79614edefaaf09dff3576a1fea7173b2d52620502d3b2607d36ae2609/dash_bootstrap_templates-1.2.4-py3-none-any.whl", hash = "sha256:8a794b6bbc2d5e820087417d17f8d110928a64be12fb21e829b15413de43a0aa", size = 97228 },
+]
+
+[[package]]
 name = "dash-core-components"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -314,12 +328,13 @@ wheels = [
 
 [[package]]
 name = "insightboard"
-version = "0.0.1.dev72+gf891980.d20241011"
+version = "0.0.1.dev74+ga1a3248.d20241016"
 source = { editable = "." }
 dependencies = [
     { name = "cachetools" },
     { name = "dash" },
     { name = "dash-bootstrap-components" },
+    { name = "dash-bootstrap-templates" },
     { name = "dash-dangerously-set-inner-html" },
     { name = "dash-table" },
     { name = "jsonschema" },
@@ -343,6 +358,7 @@ requires-dist = [
     { name = "cachetools", specifier = ">=5.5.0" },
     { name = "dash", specifier = ">=2.18.1" },
     { name = "dash-bootstrap-components", specifier = ">=1.6.0" },
+    { name = "dash-bootstrap-templates", specifier = ">=1.2.4" },
     { name = "dash-dangerously-set-inner-html", specifier = ">=0.0.2" },
     { name = "dash-table", specifier = ">=5.0.0" },
     { name = "jsonschema", specifier = ">=4.23.0" },

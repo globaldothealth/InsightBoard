@@ -42,8 +42,15 @@ def sample_schema():
 def test_get_project():
     # Get an existing project
     name = "test_project"
-    with patch("pathlib.Path.exists") as mock_path_exists:
-        mock_path_exists.return_value = True
+    path_exists = Path.exists  # Rename to prevent recursive calls
+
+    # Mock existence of the project folder
+    def mock_path_exists(self):
+        if self.name == "test_project":
+            return True
+        return path_exists(self)
+
+    with patch("pathlib.Path.exists", new=mock_path_exists):
         project = get_project(name)
     assert isinstance(project, Project)
     assert project.name == name

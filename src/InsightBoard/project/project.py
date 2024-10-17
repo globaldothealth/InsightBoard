@@ -1,11 +1,13 @@
 import io
 import json
 import base64
+import tomllib
+import tomli_w
 import pandas as pd
 
 from pathlib import Path
 
-from InsightBoard.database import Database, DatabaseBackend
+from InsightBoard.database import Database, DatabaseBackend, BackupPolicy
 from InsightBoard.config import ConfigManager
 from InsightBoard import utils
 
@@ -69,9 +71,63 @@ class Project:
             raise Exception(
                 f"Project '{self.name}' does not exist in '{self.projects_folder}'."
             )
+        self.default_config = {
+            "project": {
+                "name": self.name,
+            },
+            "database": {
+                "backend": DatabaseBackend.PARQUET.name,
+                "data_folder": "data",
+                "backup_policy": BackupPolicy.NONE.name,
+            },
+        }
+        self.config = self.load_config()
+        # Initialise database
         self.database = Database(
-            backend=DatabaseBackend.PARQUET, data_folder=self.get_data_folder()
+            backend=self.get_db_backend(),
+            data_folder=self.get_data_folder(),
         )
+        self.database.set_backup_policy(self.get_db_backup_policy())
+
+    def load_config(self):
+        config_path = Path(self.project_folder) / "config.toml"
+        if config_path.exists():
+            with open(config_path, "rb") as f:
+                file_config = tomllib.load(f)
+            return {**self.default_config, **file_config}
+        else:
+            return self.default_config
+
+    def save_config(self):
+        config_path = Path(self.project_folder) / "config.toml"
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(config_path, "wb") as f:
+            tomli_w.dump(self.config, f)
+
+    def set_db_backup_policy(self, policy: BackupPolicy):
+        if not isinstance(policy, BackupPolicy):
+            raise ValueError("Backup policy must be a BackupPolicy enum.")
+        # Set the backup policy in the database
+        self.database.set_backup_policy(policy)
+        # Update configuration
+        self.config["database"]["backup_policy"] = policy.name
+        self.save_config()
+
+    def get_db_backup_policy(self):
+        return BackupPolicy[self.config["database"]["backup_policy"]]
+
+    def set_db_backend(self, backend: DatabaseBackend):
+        if not isinstance(backend, DatabaseBackend):
+            raise ValueError("Database backend must be a DatabaseBackend enum.")
+        # Create a new database backend
+        self.database = Database(backend=backend, data_folder=self.get_data_folder())
+        self.database.set_backup_policy(self.get_db_backup_policy())
+        # Update configuration
+        self.config["database"]["backend"] = backend.name
+        self.save_config()
+
+    def get_db_backend(self):
+        return DatabaseBackend[self.config["database"]["backend"]]
 
     def get_reports_folder(self):
         return f"{self.project_folder}/reports"
@@ -106,9 +162,9 @@ class Project:
         if not data_folder.exists():
             return []
         return [
-            {"filename": f, "label": f.with_suffix("").name}
+            {"filename": f, "label": f.name[: -len(self.database.suffix) - 1]}
             for f in data_folder.iterdir()
-            if f.is_file() and f.suffix == ".parquet"
+            if f.is_file() and f.name.endswith(self.database.suffix)
         ]
 
     def get_project_parsers(self):
@@ -131,7 +187,7 @@ class Project:
                 f"Available datasets: {[d['label'] for d in project_datasets]}"
             )
         datasets = [d for d in project_datasets if d["label"] in datasets]
-        return [pd.read_parquet(f"{d['filename']}") for d in datasets]
+        return [self.database.read_table(d["label"]) for d in datasets]
 
     def load_and_parse(self, filename, contents, selected_parser):
         content_type, content_string = contents.split(",")
