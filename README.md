@@ -10,17 +10,24 @@ Documentation: [ReadTheDocs](https://insightboard.readthedocs.io/en/latest)
 
 ## Installation
 
-Install **Insight**Board using your favourite package manager. For `pip` this would be:
+First, ensure you have a compatible version of [Python 3](https://www.python.org/downloads/) installed on your computer, then install **Insight**Board using your favourite package manager. Modern Python distributions come bundled with `pip`, so this would be:
 ```bash
-pip install InsightBoard
+pip3 install InsightBoard
 ```
 
 You will also want to install ADTL (Another Data Transform Language) to make full use of the parsers, including those supplied with the sample project:
 ```bash
-pip install "adtl[parquet] @ git+https://github.com/globaldothealth/adtl"
+pip3 install "adtl[parquet] @ git+https://github.com/globaldothealth/adtl"
 ```
 
-To launch the dashboard, simply type `InsightBoard` from the command line. The dashboard should appear in your default web browser. By default the dashboard will be available at http://localhost:8050/.
+To launch the dashboard, simply type `InsightBoard` from the command line. The dashboard should open in your default web browser (http://localhost:8050/). If the command is not found, you can also launch the dashboard by typing `python3 -m InsightBoard`.
+
+### Upgrading
+
+To upgrade to the latest version of InsightBoard, run:
+```bash
+pip3 install --upgrade InsightBoard
+```
 
 ## Getting started
 
@@ -28,16 +35,16 @@ By default InsightBoard will create a folder called `InsightBoard/projects` in y
 
 We recommend that you store each project in a separate (version controlled) git repository within the projects folder. This will allow you to easily share your projects with others and keep track of any changes.
 
-For example, to set up an existing project called `my_project` in the `InsightBoard/projects` folder, you can run the following commands from the command line:
+For example, to set up the `sample_project` in the `InsightBoard/projects` folder, you can run the following commands from the command line (note that this requires you to have a working [`github`](https://github.com/) account):
 
 ```bash
 cd ~/InsightBoard/projects
-git clone <url> my_project
+git clone git@github.com:globaldothealth/InsightBoard-SampleProject.git sample_project
 ```
 
-Details of how to create a new project are provided in the accompanying [documentation](https://insightboard.readthedocs.io/en/latest/).
+If you now launch `InsightBoard` it will start with the `sample_project` available from the projects dropdown list (in the upper-left of the screen). Usage details, and instructions on how to create new projects, are provided in the accompanying [documentation](https://insightboard.readthedocs.io/en/latest/).
 
 
-## Development
+## Developers
 
 See the [development](dev) pages for more information.
