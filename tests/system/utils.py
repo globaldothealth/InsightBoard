@@ -4,6 +4,7 @@ import tomllib
 import tomli_w
 
 import InsightBoard
+from InsightBoard.config import ConfigManager
 
 from pathlib import Path
 from selenium import webdriver
@@ -47,7 +48,8 @@ def driver():
     driver = webdriver.Chrome(service=service, options=options)
 
     # Override default project location
-    config_file = Path.home() / ".insightboard" / "config.toml"
+    manager = ConfigManager()
+    config_file = manager.config_file
     try:
         with open(config_file, "r") as f:
             config = tomllib.loads(f.read())
