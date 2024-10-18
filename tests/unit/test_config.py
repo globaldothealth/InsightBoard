@@ -1,3 +1,4 @@
+import os
 import pytest
 
 from unittest import mock
@@ -29,10 +30,10 @@ def manager():
     """ConfigManager is a singleton instance
     Ensure it is reset before each test to avoid test pollution.
     """
-    ConfigManager()._instance = None  # Reset the singleton instance
     manager = ConfigManager()
-    manager.config = {}
-    return manager
+    del manager
+    manager = ConfigManager()
+    yield manager
 
 
 def test_singleton(manager):
@@ -41,6 +42,21 @@ def test_singleton(manager):
     config = ConfigManager()
     assert config
     assert manager is config
+
+
+def test_singleton__reset(manager):
+    # Check that our singleton reset method works
+    config = {"name": "Alice"}
+    assert manager
+    manager_copy = ConfigManager()
+    assert manager is manager_copy
+    manager.config = config
+    assert manager.config == config
+    assert manager_copy.config == config
+    del manager
+    del manager_copy
+    new_manager = ConfigManager()
+    assert new_manager.config != config
 
 
 def test_init(manager):
@@ -61,6 +77,23 @@ def test_ensure_config_exists__create(manager):
     ):
         manager.ensure_config_exists()
         mock_open_file.assert_called_once()
+
+
+def test_get_config_base__windows(manager):
+    with (
+        patch.dict(os.environ, {"APPDATA": "C:\\Users\\Alice\\AppData"}),
+        patch("platform.system", return_value="Windows"),
+    ):
+        assert str(manager.get_config_base()) == "C:\\Users\\Alice\\AppData"
+
+
+@pytest.mark.skipif(os.name == 'nt', reason="Not applicable on Windows")
+def test_get_config_base__not_windows(manager):
+    with (
+        patch.dict(os.environ, {"HOME": "/home/alice"}),
+        patch("platform.system", return_value="Linux"),
+    ):
+        assert str(manager.get_config_base()) == "/home/alice/.config"
 
 
 def test_ensure_config_exists__exists(manager):
@@ -107,76 +140,95 @@ def test_load_config__not_exists(manager):
     assert config == {}
 
 
-def test_merge_configs():
+def test_merge_configs(manager):
+    config = {"name": "MyApp", "version": "1.0"}
+    default_config = {"name": "MyApp", "author": "Bob"}
+    config_merged = manager.merge_configs(config, default_config)
+    assert config_merged == {"name": "MyApp", "version": "1.0", "author": "Bob"}
+
+
+def test_load_and_merge_config(manager):
     pass
 
 
-def test_load_and_merge_config():
-    pass
+def test_get_project_folder(manager):
+    manager.config = {
+        "project": {
+            "folder": "project_folder",
+        },
+    }
+    assert manager.get_project_folder() == "project_folder"
 
 
-def test_get_project_folder():
-    pass
+def test_set_project_folder(manager):
+    manager.config = {}
+    manager.set_project_folder("project_folder")
+    assert manager.config.get("project", {}).get("folder", None) == "project_folder"
 
 
-def test_get_default_project():
-    pass
+def test_get_default_project(manager):
+    manager.config = {
+        "project": {
+            "folder": "project_folder",
+        },
+    }
+    assert manager.get_project_folder() == "project_folder"
 
 
-def test_get_simple_key(manager):
+def test_get__simple_key(manager):
     manager.config = {"name": "Alice"}
     assert manager.get("name", None) == "Alice"
 
 
-def test_get_missing_key(manager):
+def test_get__missing_key(manager):
     manager.config = {"name": "Alice"}
     assert not manager.get("age", None)
 
 
-def test_get_nested_key(manager):
+def test_get__nested_key(manager):
     manager.config = {"person": {"name": "Bob"}}
     assert manager.get("person.name", None) == "Bob"
 
 
-def test_get_deeply_nested_key(manager):
+def test_get__deeply_nested_key(manager):
     manager.config = {"a": {"b": {"c": {"d": {"e": "value"}}}}}
     assert manager.get("a.b.c.d.e", None) == "value"
 
 
-def test_get_deeply_nested_missing_key(manager):
+def test_get__deeply_nested_missing_key(manager):
     manager.config = {"a": {"b": {"c": {"d": {"e": "value"}}}}}
     assert not manager.get("a.b.d.e", None)
 
 
-def test_get_default_value(manager):
+def test_get__default_value(manager):
     manager.config = {"name": "Alice"}
     assert manager.get("age", 30) == 30
 
 
-def test_set_simple_key(manager):
+def test_set__simple_key(manager):
     manager.set("name", "Alice")
     assert manager.config.get("name", None) == "Alice"
 
 
-def test_set_nested_key(manager):
+def test_set__nested_key(manager):
     manager.set("person.name", "Bob")
     assert manager.config.get("person", None) == {"name": "Bob"}
     assert manager.config.get("person", {}).get("name", None) == "Bob"
 
 
-def test_set_overwrite_key(manager):
+def test_set__overwrite_key(manager):
     manager.set("name", "Alice")
     manager.set("name", "Charlie")
     assert manager.config.get("name", None) == "Charlie"
 
 
-def test_set_add_to_existing_nested_key(manager):
+def test_set__add_to_existing_nested_key(manager):
     manager.set("person.name", "Bob")
     manager.set("person.age", 30)
     assert manager.config.get("person", None) == {"name": "Bob", "age": 30}
 
 
-def test_set_deeply_nested_key(manager):
+def test_set__deeply_nested_key(manager):
     manager.set("a.b.c.d.e", "value")
     assert manager.config.get("a", None) == {"b": {"c": {"d": {"e": "value"}}}}
 

@@ -47,9 +47,13 @@ class DatabaseBase(ABC):
         self.backup_policy = BackupPolicy.NONE
 
     def set_write_policy(self, policy: WritePolicy):
+        if not isinstance(policy, WritePolicy):
+            raise ValueError("WritePolicy must be an instance of WritePolicy.")
         self.write_policy = policy
 
     def set_backup_policy(self, policy: BackupPolicy):
+        if not isinstance(policy, BackupPolicy):
+            raise ValueError("BackupPolicy must be an instance of BackupPolicy.")
         self.backup_policy = policy
 
     def commit_tables_dict(self, table_names: [str], datasets: [dict]):
@@ -177,13 +181,15 @@ class DatabaseParquet(DatabaseBase):
     def backup(self, file_path, backup_policy: BackupPolicy = None):
         backup_policy = backup_policy or self.backup_policy
         if backup_policy == BackupPolicy.TIMESTAMPED_COPIES:
+            if not isinstance(file_path, Path):
+                file_path = Path(file_path)
             backup_folder = Path(self.data_folder) / "backup"
             backup_folder.mkdir(parents=True, exist_ok=True)
             datetime_stamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
             file_stem = file_path.stem
             shutil.copy(
                 file_path,
-                backup_folder / f"{file_stem}_{datetime_stamp}_.{self.suffix}",
+                backup_folder / f"{file_stem}_{datetime_stamp}.{self.suffix}",
             )
 
     def write_table_parquet(
@@ -210,19 +216,16 @@ class DatabaseParquet(DatabaseBase):
             if not primary_key:
                 # No primary key, just append the new data
                 combined_df = self.dataframe_append(df, old_df, primary_key=None)
-            if primary_key not in df.columns:
-                raise ValueError(
-                    f"Critical error - primary key '{primary_key}' not found in existing database."
-                )
-            match write_policy:
-                case WritePolicy.APPEND:
-                    combined_df = self.dataframe_append(df, old_df, primary_key)
-                case WritePolicy.UPSERT:
-                    combined_df = self.dataframe_upsert(df, old_df, primary_key)
-                case _:
-                    raise ValueError(
-                        f"Requested WritePolicy '{write_policy}' is not supported."
-                    )
+            else:
+                match write_policy:
+                    case WritePolicy.APPEND:
+                        combined_df = self.dataframe_append(df, old_df, primary_key)
+                    case WritePolicy.UPSERT:
+                        combined_df = self.dataframe_upsert(df, old_df, primary_key)
+                    case _:
+                        raise ValueError(
+                            f"Requested WritePolicy '{write_policy}' is not supported."
+                        )
         else:
             # First time writing to the file
             combined_df = self.dataframe_new(df)
