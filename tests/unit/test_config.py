@@ -87,6 +87,7 @@ def test_get_config_base__windows(manager):
         assert str(manager.get_config_base()) == "C:\\Users\\Alice\\AppData"
 
 
+@pytest.mark.skipif(os.name == 'nt', reason="Not applicable on Windows")
 def test_get_config_base__not_windows(manager):
     with (
         patch.dict(os.environ, {"HOME": "/home/alice"}),
