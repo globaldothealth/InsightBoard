@@ -2,8 +2,10 @@
 
 import json
 import pytest
+import pyarrow
 import pandas as pd
 
+from pathlib import Path
 from unittest import mock
 from datetime import datetime
 from tempfile import TemporaryDirectory
@@ -24,6 +26,62 @@ def db_parquet_versioned():
         yield Database(DatabaseBackend.PARQUET_VERSIONED, temp_dir)
 
 
+@pytest.mark.parametrize(
+    "backend",
+    [
+        "db_parquet",
+        "db_parquet_versioned",
+    ],
+)
+def test_DatabaseParquet_set_write_policy(request, backend):
+    db = request.getfixturevalue(backend)
+    db.set_write_policy(WritePolicy.APPEND)
+    assert db.write_policy == WritePolicy.APPEND
+    db.set_write_policy(WritePolicy.UPSERT)
+    assert db.write_policy == WritePolicy.UPSERT
+
+
+@pytest.mark.parametrize(
+    "backend",
+    [
+        "db_parquet",
+        "db_parquet_versioned",
+    ],
+)
+def test_DatabaseParquet_set_write_policy__invalid(request, backend):
+    db = request.getfixturevalue(backend)
+    with pytest.raises(ValueError):
+        db.set_write_policy("invalid_policy")
+
+
+@pytest.mark.parametrize(
+    "backend",
+    [
+        "db_parquet",
+        "db_parquet_versioned",
+    ],
+)
+def test_DatabaseParquet_set_backup_policy(request, backend):
+    db = request.getfixturevalue(backend)
+    db.set_backup_policy(BackupPolicy.NONE)
+    assert db.backup_policy == BackupPolicy.NONE
+    db.set_backup_policy(BackupPolicy.TIMESTAMPED_COPIES)
+    assert db.backup_policy == BackupPolicy.TIMESTAMPED_COPIES
+
+
+@pytest.mark.parametrize(
+    "backend",
+    [
+        "db_parquet",
+        "db_parquet_versioned",
+    ],
+)
+def test_DatabaseParquet_set_backup_policy__invalid(request, backend):
+    db = request.getfixturevalue(backend)
+    with pytest.raises(ValueError):
+        db.set_backup_policy("invalid_policy")
+
+
 def drop_metadata(df):
     return df.drop(columns=["_version", "_deleted", "_metadata"], errors="ignore")
 
@@ -38,6 +96,32 @@ def drop_metadata(df):
 def test_backend(request, backend, db_backend):
     db = request.getfixturevalue(backend)
     assert db.BACKEND == db_backend
+
+
+def test_DatabaseParquet_read_table_column(db_parquet):
+    db = db_parquet
+    table_name = "table1"
+    df = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
+    table = pyarrow.Table.from_pandas(df)
+    with patch("pyarrow.parquet.read_table", return_value=table):
+        col1 = db.read_table_column(table_name, "col1")
+        assert col1.equals(pd.Series([1, 2, 3]))
+        col2 = db.read_table_column(table_name, "col2")
+        assert col2.equals(pd.Series([4, 5, 6]))
+
+
+def test_DatabaseParquetVersioned_read_table_column(db_parquet_versioned):
+    db = db_parquet_versioned
+    table_name = "table1"
+    df = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
+    with patch(
+        "InsightBoard.database.database.DatabaseParquetVersioned.read_table",
+        return_value=df,
+    ):
+        col1 = db.read_table_column(table_name, "col1")
+        assert col1.equals(pd.Series([1, 2, 3]))
+        col2 = db.read_table_column(table_name, "col2")
+        assert col2.equals(pd.Series([4, 5, 6]))
 
 
 @pytest.mark.parametrize(
@@ -198,6 +282,54 @@ def test_get_primary_key__too_many(request, backend):
             db.get_primary_key(table_name)
 
 
+def test_get_primary_keys_parquet(db_parquet):
+    db = db_parquet
+    with (
+        patch(
+            "InsightBoard.database.database.DatabaseBase.get_primary_key",
+            return_value="col1",
+        ),
+        patch(
+            "InsightBoard.database.database.DatabaseParquet.read_table_column",
+            return_value=pd.Series([1, 2, 3]),
+        ),
+    ):
+        assert db.get_primary_keys("table1") == [1, 2, 3]
+
+
+def test_get_primary_keys_parquet_versioned(db_parquet_versioned):
+    db = db_parquet_versioned
+    with (
+        patch(
+            "InsightBoard.database.database.DatabaseBase.get_primary_key",
+            return_value="col1",
+        ),
+        patch(
+            "InsightBoard.database.database.DatabaseParquetVersioned.read_table_column",
+            return_value=pd.Series([1, 2, 3]),
+        ),
+    ):
+        assert db.get_primary_keys("table1") == [1, 2, 3]
+
+
+@pytest.mark.parametrize(
+    "backend",
+    [
+        "db_parquet",
+        "db_parquet_versioned",
+    ],
+)
+def test_get_primary_keys__no_key(request, backend):
+    db = request.getfixturevalue(backend)
+    with (
+        patch(
+            "InsightBoard.database.database.DatabaseBase.get_primary_key",
+            return_value=None,
+        ),
+    ):
+        assert db.get_primary_keys("table1") == []
+
+
 @pytest.mark.parametrize(
     "backend",
     [
@@ -329,6 +461,41 @@ def test_commit_table(request, backend):
 
 
 @pytest.mark.parametrize(
+    "backend,suffix",
+    [
+        ("db_parquet", "parquet"),
+        ("db_parquet_versioned", "ver.parquet"),
+    ],
+)
+def test_backup(request, backend, suffix):
+    db = request.getfixturevalue(backend)
+    # Backup policy: NONE (no action)
+    db.backup("datafile.parquet", BackupPolicy.NONE)
+    with (
+        TemporaryDirectory() as temp_dir,
+    ):
+        # Backup policy: TIMESTAMPED_COPIES (copy file)
+        with (
+            patch.object(db, "data_folder", temp_dir),
+            patch("InsightBoard.database.database.datetime") as mock_datetime,
+        ):
+            # Create temp file for backup and ensure backup target does not exist
+            temp_filename = str(Path(temp_dir) / "datafile.parquet")
+            with open(temp_filename, "wb") as temp_file:
+                temp_file.write(b"test contents")
+            mock_datetime.now.return_value = datetime(2021, 2, 1, 1, 2, 3)
+            strnow = mock_datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
+            target_file = Path(temp_dir) / "backup" / f"datafile_{strnow}.{suffix}"
+            target_file.unlink(missing_ok=True)
+            # Perform backup
+            db.backup(temp_file.name, BackupPolicy.TIMESTAMPED_COPIES)
+            # Check that the file was copied correctly
+            assert target_file.exists()
+            with open(target_file, "rb") as f:
+                assert f.read() == b"test contents"
+
+
+@pytest.mark.parametrize(
     "backend",
     [
         "db_parquet",
@@ -343,6 +510,91 @@ def test_write_table_parquet(request, backend):
     # Read and check parquet file
     db1 = drop_metadata(pd.read_parquet(db.data_folder + "/table1." + db.suffix))
     assert db1.equals(df)
+
+
+@pytest.mark.parametrize(
+    "backend",
+    [
+        "db_parquet",
+        "db_parquet_versioned",
+    ],
+)
+def test_write_table_parquet__empty(request, backend):
+    db = request.getfixturevalue(backend)
+    table_name = "table1"
+    df = pd.DataFrame({"col1": [], "col2": []})
+    db.write_table_parquet(table_name, df)
+
+
+@pytest.mark.parametrize(
+    "backend",
+    [
+        "db_parquet",
+        "db_parquet_versioned",
+    ],
+)
+def test_write_table_parquet__key_error(request, backend):
+    db = request.getfixturevalue(backend)
+    table_name = "table1"
+    df = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
+    with patch(
+        "InsightBoard.database.database.DatabaseBase.get_primary_key",
+        return_value="not_a_column",
+    ):
+        with pytest.raises(ValueError):
+            db.write_table_parquet(table_name, df)
+
+
+@pytest.mark.parametrize(
+    "backend",
+    [
+        "db_parquet",
+        "db_parquet_versioned",
+    ],
+)
+def test_write_table_parquet__invalid_write_policy(request, backend):
+    db = request.getfixturevalue(backend)
+    table_name = "table1"
+    df = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
+    with patch(
+        "InsightBoard.database.database.DatabaseBase.get_primary_key",
+        return_value="col1",
+    ):
+        # Ensure the target file exists (for append to work)
+        db_file = Path(db.data_folder) / f"table1.{db.suffix}"
+        db_file.unlink(missing_ok=True)
+        db.write_table_parquet(table_name, df)
+        with pytest.raises(ValueError):
+            db.write_table_parquet(
+                table_name,
+                df,
+                write_policy="invalid_policy",
+                backup_policy=BackupPolicy.NONE,
+            )
+
+
+@pytest.mark.parametrize(
+    "backend",
+    [
+        "db_parquet",
+        "db_parquet_versioned",
+    ],
+)
+def test_write_table_parquet__no_primary_key(request, backend):
+    db = request.getfixturevalue(backend)
+    table_name = "table1"
+    df = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
+    with patch(
+        "InsightBoard.database.database.DatabaseBase.get_primary_key", return_value=None
+    ):
+        db_file = Path(db.data_folder) / f"table1.{db.suffix}"
+        db_file.unlink(missing_ok=True)
+        db.write_table_parquet(table_name, df)
+        df1 = drop_metadata(pd.read_parquet(db_file).sort_values("col1"))
+        assert (df1.values == df.values).all()
+        db.write_table_parquet(table_name, df)
+        df2 = drop_metadata(pd.read_parquet(db_file))
+        assert (df2.values == pd.concat([df, df]).values).all()
 
 
 def test_write_table_parquet__primary_key_upsert(db_parquet):
