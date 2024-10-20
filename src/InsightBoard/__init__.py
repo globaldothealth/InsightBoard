@@ -10,6 +10,7 @@ from waitress import serve
 
 from InsightBoard.app import app  # noqa: F401
 from InsightBoard.version import __version__  # noqa: F401
+import InsightBoard.index  # noqa: F401
 
 INSIGHTBOARD_HOST = os.getenv("INSIGHTBOARD_HOST", "127.0.0.1")
 INSIGHTBOARD_PORT = os.getenv("INSIGHTBOARD_PORT", 8050)
