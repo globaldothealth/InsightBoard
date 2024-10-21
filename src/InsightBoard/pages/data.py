@@ -146,6 +146,9 @@ def load_selected_table(selected_table, project):
         selected_table,
     )
 
+    # Update the chatbot target
+    chatbot.set_table(project, selected_table)
+
     # Dynamically create the DataTable
     return (
         columns,

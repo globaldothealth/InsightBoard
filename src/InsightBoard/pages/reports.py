@@ -4,7 +4,6 @@ import dash
 from dash import dcc, html, Input, Output, State, callback
 
 import InsightBoard.utils as utils
-import InsightBoard.chatbot as chatbot
 
 # Register the page
 dash.register_page(__name__, path="/reports")
@@ -15,7 +14,6 @@ projectObj = None
 def layout():
     return html.Div(
         [
-            chatbot.layout(),
             html.H1("Report"),
             dcc.Store(id="project", storage_type="memory"),  # Store the project name
             dcc.Dropdown(id="report-dropdown", placeholder="Select a report"),
