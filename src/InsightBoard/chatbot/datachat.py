@@ -25,7 +25,7 @@ logging.info("Logging started")
 
 
 config = ConfigManager()
-API_KEY = config.get("chatbot.api_key", None)
+API_KEY = config.get("chatbot.api_key", default=None)
 
 
 class DataChat:
@@ -38,6 +38,8 @@ class DataChat:
         self.table = None
         if project and table:
             self.set_table(project, table)
+
+        self.chat_history = []
 
     def is_chatbot_ready(self):
         not_set = []
@@ -272,10 +274,11 @@ class ChatbotState:
         self.display = "none"  # Initially hidden
         self.width = "50vw"
         self.height = "80vh"
+        self.chat_history = []
 
 
 dc = DataChat(
-    config.get("chatbot.model", None),
-    config.get("chatbot.project", None),
-    config.get("chatbot.table", None),
+    config.get("chatbot.model", default=None),
+    config.get("chatbot.project", default=None),
+    config.get("chatbot.table", default=None),
 )

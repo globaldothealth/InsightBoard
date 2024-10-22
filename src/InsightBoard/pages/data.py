@@ -19,7 +19,7 @@ def layout():
         [
             html.H1("Project Data Table"),
             dcc.Store(id="project", storage_type="memory"),  # Store the project name
-            chatbot.layout(),
+            chatbot.layout() if chatbot.is_chatbot_enabled() else None,
             html.H3("Select a table to view"),
             dcc.Dropdown(id="table-dropdown", placeholder="Select a table"),
             html.Div("", id="datatable-report-length"),

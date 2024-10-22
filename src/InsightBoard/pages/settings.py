@@ -5,6 +5,7 @@ from dash import html, dcc, callback, Input, Output, State
 
 import InsightBoard.utils as utils
 from InsightBoard.config import ConfigManager
+from InsightBoard.chatbot import is_chatbot_enabled
 from InsightBoard.database import DatabaseBackend, BackupPolicy
 
 # Register the page
@@ -14,6 +15,18 @@ dash.register_page(__name__, path="/settings")
 # Layout for the Data Page
 def layout():
     config = ConfigManager()
+
+    tab_chatbot = []
+    if is_chatbot_enabled():
+        tab_chatbot = [
+            dcc.Tab(
+                label="Chatbot",
+                children=[
+                    dbc.Card(dbc.CardBody(chatbot_settings(config)))
+                ],
+            ),
+        ]
+
     return html.Div(
         [
             html.Div(
@@ -28,12 +41,7 @@ def layout():
                                     dbc.Card(dbc.CardBody(general_settings(config)))
                                 ],
                             ),
-                            dcc.Tab(
-                                label="Chatbot",
-                                children=[
-                                    dbc.Card(dbc.CardBody(chatbot_settings(config)))
-                                ],
-                            ),
+                            *tab_chatbot,
                             dcc.Tab(
                                 label="Project",
                                 children=[

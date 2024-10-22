@@ -3,6 +3,7 @@ import dash_bootstrap_components as dbc
 
 import InsightBoard.chatbot.callbacks  # noqa: F401
 from InsightBoard.chatbot.datachat import dc, ChatbotState
+from InsightBoard.config import ConfigManager
 
 state = ChatbotState()
 
@@ -114,3 +115,8 @@ def initialize_chatbot():
 
 def set_table(project, table):
     dc.set_table(project, table)
+
+
+def is_chatbot_enabled():
+    config = ConfigManager()
+    return config.get("chatbot.enabled", default=False)
