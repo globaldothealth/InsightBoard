@@ -1,12 +1,13 @@
 import json
 import logging
 import requests
+import pandas as pd
 import plotly.express as px
+import dash_bootstrap_components as dbc
+
 from typing import Tuple
 from dash import dcc, html
 from dash import dash_table
-from pathlib import Path
-from tempfile import NamedTemporaryFile
 
 import InsightBoard.chatbot.prompts as prompts
 import InsightBoard.utils as utils
@@ -37,10 +38,6 @@ class DataChat:
         self.table = None
         if project and table:
             self.set_table(project, table)
-
-        self.chat_history = []
-        self.prompt_sql_template = prompts.sql_template
-        self.prompt_sql_viz = prompts.sql_viz
 
     def is_chatbot_ready(self):
         not_set = []
@@ -75,9 +72,10 @@ class DataChat:
         self.json_schema = projectObj.get_schema(self.table)
 
     def prompt_sql(self) -> str:
-        return self.prompt_sql_template.format(
-            table=self.table,
-            schema=json.dumps(self.json_schema),
+        return prompts.sql_template(
+            {
+                self.table: self.json_schema,
+            },
         )
 
     def send_query(self, chat: [str]) -> str:
@@ -87,7 +85,8 @@ class DataChat:
         response = requests.post(self.url, headers=headers, data=json.dumps(payload))
         if response.status_code != 200:
             raise ValueError(
-                f"Request failed with status code {response.status_code}: {response.text}"
+                f"Request failed with status code {response.status_code}: "
+                f"{response.text}"
             )
         response_data = response.json()
         bot_response = response_data["candidates"][0]["content"]["parts"][0]["text"]
@@ -116,7 +115,7 @@ class DataChat:
         if not ready:
             return msg, False, None
 
-        # Ask the chatbot for an SQL query that answers the question
+        # Ask the chatbot for an SQL query that addresses the query
         try:
             sql_prompt = self.prompt_sql()
             bot_response = self.send_query(
@@ -134,23 +133,26 @@ class DataChat:
 
         # Ask the chatbot for a visualization suggestion
         viz_suggestion = None
+        is_query = True  # Should always be true
         if bot_response.startswith("```sql\n"):
             bot_response = bot_response[7:-4]
-            is_query = True
+
+        if is_query:
             # Add prompt for visualization
             try:
                 viz_suggestion = self.send_query(
                     [
-                        sql_prompt,
                         query,
                         bot_response,
-                        self.prompt_sql_viz,
+                        prompts.sql_viz(),
                     ]
                 )
             except Exception:
                 pass
-        else:
-            is_query = False
+
+        if is_query:
+            bot_response = self.execute_query(bot_response, viz_suggestion)
+
         return bot_response, is_query, viz_suggestion
 
     def parse_viz_suggestion(self, viz_suggestion: str) -> [str]:
@@ -162,35 +164,16 @@ class DataChat:
                 return s[1:-1]
             return s
 
-        fcn_name = viz_suggestion.split("(")[0].strip() if "(" in viz_suggestion else "none"
+        fcn_name = (
+            viz_suggestion.split("(")[0].strip() if "(" in viz_suggestion else "none"
+        )
         if fcn_name == "none":
             return [fcn_name]
         args = viz_suggestion.split("(")[1].split(")")[0].split(",")
         args = [dequote(arg.strip()) for arg in args]
         return [fcn_name, *args]
 
-    def execute_query(self, query, viz):
-        import pandas as pd
-        import sqlite3
-
-        # Read the Parquet file into a Pandas DataFrame and transfer to SQLite
-        # (inefficient, but proof of concept)
-
-        # ### Should not analyze versioned data - only clean data - read from database
-        projectObj = utils.get_project(self.project)
-        data = projectObj.database.read_table(self.table)
-        with NamedTemporaryFile(suffix=".db", delete=False) as tempfile:
-            try:
-                Path(tempfile.name).unlink()  # Remove the file if it exists
-                conn = sqlite3.connect(tempfile.name)  # Create or connect
-                data.to_sql(self.table, conn, if_exists="replace", index=False)
-                # Run a SQL query on the SQLite database and close the connection
-                df = pd.read_sql_query(query, conn)
-                conn.close()
-            except Exception as e:
-                return f"Error executing query: {str(e)}"
-        Path(tempfile.name).unlink()
-
+    def viz_suggestion_to_dash(self, df, viz):
         # Visualize the data
         fig = None
         fcn_name, *args = self.parse_viz_suggestion(viz)
@@ -208,8 +191,8 @@ class DataChat:
                 col1, col2 = args
                 fig = px.bar(df, x=col1, y=col2)
             case "pie":
-                col1 = args[0]
-                fig = px.pie(df, names=col1)
+                values, names = args
+                fig = px.pie(df, values=values, names=names)
             case "bubble":
                 col1, col2, col3 = args
                 fig = px.scatter(df, x=col1, y=col2, size=col3)
@@ -218,8 +201,21 @@ class DataChat:
                 fig = px.scatter_geo(df, locations=location, color=color, size=size)
             case "none":
                 pass
+            case _:
+                logging.warning(f"Unrecognised visualization requested: {viz}")
+        return fig
 
-        # Return the query result as a Dash DataTable
+    def sql_query(self, query: str) -> pd.DataFrame:
+        projectObj = utils.get_project(self.project)
+        return projectObj.database.sql_query(query, self.table)
+
+    def execute_query(self, query, viz):
+        try:
+            df = self.sql_query(query)
+        except Exception as e:
+            return f"Error executing query: {str(e)}"
+
+        # Data table
         data_table = dash_table.DataTable(
             id="table",
             columns=[{"name": i, "id": i} for i in df.columns],
@@ -228,10 +224,39 @@ class DataChat:
             style_table={"overflowX": "auto"},
         )
 
+        # Visualize the data
+        html_error = []
+        try:
+            fig = self.viz_suggestion_to_dash(df, viz)
+        except Exception as e:
+            fig = None
+            html_error = [
+                dbc.Alert(
+                    f"Error visualizing data: {str(e)}",
+                    color="warning",
+                    style={"fontSize": "0.8rem"},
+                )
+            ]
         if fig:
-            return html.Div([data_table, dcc.Graph(figure=fig)])
-
-        return html.Div([data_table])
+            return html.Div([
+                dbc.Alert(query, color="info", style={"fontSize": "0.8rem"}),
+                dcc.Tabs([
+                    dcc.Tab(
+                        label="Graph",
+                        children=[dcc.Graph(figure=fig)],
+                    ),
+                    dcc.Tab(
+                        label="Data",
+                        children=[data_table],
+                    ),
+                ])
+            ])
+        else:
+            return html.Div([
+                dbc.Alert(query, color="info", style={"fontSize": "0.8rem"}),
+                data_table,
+                *html_error,
+            ])
 
 
 class ChatbotState:
@@ -247,7 +272,6 @@ class ChatbotState:
         self.display = "none"  # Initially hidden
         self.width = "50vw"
         self.height = "80vh"
-        self.chat_history = []
 
 
 dc = DataChat(

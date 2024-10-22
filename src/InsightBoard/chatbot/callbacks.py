@@ -68,20 +68,8 @@ def chat_history_state(n_clicks, user_input, chat_history):
 
         # Make bot request
         response, is_query, viz = dc.ask_sql(user_input)
-
-        # If the response is an SQL query, execute it
-        if is_query:
-
-            def sql_response(response):
-                return html.Div(response, style={"fontSize": "0.8em"})
-
-            bot_response = {"role": "bot", "message": sql_response(response)}
-            chat_history.append(bot_response)
-            query_response = dc.execute_query(response, viz)
-            chat_history.append({"role": "bot", "message": query_response})
-        else:
-            bot_response = {"role": "bot", "message": response}
-            chat_history.append(bot_response)
+        bot_response = {"role": "bot", "message": response}
+        chat_history.append(bot_response)
 
     state.chat_history = chat_history
 
