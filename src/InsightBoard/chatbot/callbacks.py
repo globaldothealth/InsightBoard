@@ -4,8 +4,6 @@ from InsightBoard.chatbot.datachat import dc, ChatbotState
 
 state = ChatbotState()
 
-# Chat history
-
 
 # Helper function to add chat bubbles for text and images
 def format_chat_bubble(role, message=None, image_url=None):

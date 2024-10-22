@@ -27,7 +27,7 @@ def layout():
     )
 
 
-# Chatbot popup overlay layout with native resize (bottom-right corner)
+# Chatbot popup overlay layout with native resize
 chatbot_overlay = html.Div(
     id="chatbot-overlay",
     style={
@@ -43,11 +43,11 @@ chatbot_overlay = html.Div(
         "display": state.display,
         "z-index": "1000",  # Make sure it's on top
         "overflow-y": "auto",  # Allows scrolling if content overflows
-        "resize": "both",  # Allow resizing from the bottom-right corner
-        "min-width": "200px",  # Set minimum width
-        "min-height": "200px",  # Set minimum height
-        "max-height": "90%",  # Limit height to screen size
-        "max-width": "90%",  # Limit width to screen size
+        "resize": "both",
+        "min-width": "200px",
+        "min-height": "200px",
+        "max-height": "90%",
+        "max-width": "90%",
     },
     children=[
         html.Div(

@@ -14,18 +14,7 @@ import InsightBoard.utils as utils
 from InsightBoard.config import ConfigManager
 
 
-# Remove any existing handlers
-for handler in logging.root.handlers[:]:
-    logging.root.removeHandler(handler)
-
-logging.basicConfig(
-    level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
-)
-logging.info("Logging started")
-
-
 config = ConfigManager()
-API_KEY = config.get("chatbot.api_key", default=None)
 
 
 class DataChat:
@@ -60,7 +49,7 @@ class DataChat:
                 self.model = model
                 self.url = (
                     "https://generativelanguage.googleapis.com/v1beta/models/"
-                    f"gemini-1.5-flash-latest:generateContent?key={API_KEY}"
+                    "gemini-1.5-flash-latest:generateContent?key={API_KEY}"
                 )
             case _:
                 self.model = None
@@ -81,10 +70,15 @@ class DataChat:
         )
 
     def send_query(self, chat: [str]) -> str:
+        api_key = config.get("chatbot.api_key", default=None)
         headers = {"Content-Type": "application/json"}
         payload = {"contents": [{"parts": [{"text": p} for p in chat]}]}
         logging.info(f"Sending request to chatbot: {payload}")
-        response = requests.post(self.url, headers=headers, data=json.dumps(payload))
+        response = requests.post(
+            self.url.format(API_KEY=api_key),
+            headers=headers,
+            data=json.dumps(payload),
+        )
         if response.status_code != 200:
             raise ValueError(
                 f"Request failed with status code {response.status_code}: "
