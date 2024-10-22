@@ -240,25 +240,31 @@ class DataChat:
                 )
             ]
         if fig:
-            return html.Div([
-                dbc.Alert(query, color="info", style={"fontSize": "0.8rem"}),
-                dcc.Tabs([
-                    dcc.Tab(
-                        label="Graph",
-                        children=[dcc.Graph(figure=fig)],
+            return html.Div(
+                [
+                    dbc.Alert(query, color="info", style={"fontSize": "0.8rem"}),
+                    dcc.Tabs(
+                        [
+                            dcc.Tab(
+                                label="Graph",
+                                children=[dcc.Graph(figure=fig)],
+                            ),
+                            dcc.Tab(
+                                label="Data",
+                                children=[data_table],
+                            ),
+                        ]
                     ),
-                    dcc.Tab(
-                        label="Data",
-                        children=[data_table],
-                    ),
-                ])
-            ])
+                ]
+            )
         else:
-            return html.Div([
-                dbc.Alert(query, color="info", style={"fontSize": "0.8rem"}),
-                data_table,
-                *html_error,
-            ])
+            return html.Div(
+                [
+                    dbc.Alert(query, color="info", style={"fontSize": "0.8rem"}),
+                    data_table,
+                    *html_error,
+                ]
+            )
 
 
 class ChatbotState:

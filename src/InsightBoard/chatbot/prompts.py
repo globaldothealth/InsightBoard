@@ -1,5 +1,6 @@
 import json
 
+
 def sql_template(tables):
     """
     Generate a SQL prompt template for a given set of tables.

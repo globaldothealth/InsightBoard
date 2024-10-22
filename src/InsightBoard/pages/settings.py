@@ -21,9 +21,7 @@ def layout():
         tab_chatbot = [
             dcc.Tab(
                 label="Chatbot",
-                children=[
-                    dbc.Card(dbc.CardBody(chatbot_settings(config)))
-                ],
+                children=[dbc.Card(dbc.CardBody(chatbot_settings(config)))],
             ),
         ]
 
