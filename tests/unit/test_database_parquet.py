@@ -477,7 +477,7 @@ def test_backup(request, backend, suffix):
         # Backup policy: TIMESTAMPED_COPIES (copy file)
         with (
             patch.object(db, "data_folder", temp_dir),
-            patch("InsightBoard.database.database.datetime") as mock_datetime,
+            patch("InsightBoard.database.db_parquet.datetime") as mock_datetime,
         ):
             # Create temp file for backup and ensure backup target does not exist
             temp_filename = str(Path(temp_dir) / "datafile.parquet")
@@ -628,7 +628,7 @@ def test_write_table_parquet_versioned__primary_key_upsert(db_parquet_versioned)
     df = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
     write_policy = WritePolicy.UPSERT
     backup_policy = BackupPolicy.NONE
-    with patch("InsightBoard.database.database.datetime") as mock_datetime:
+    with patch("InsightBoard.database.db_parquet.datetime") as mock_datetime:
         mock_datetime.now.return_value = datetime(2021, 2, 1, 1, 2, 3)
         db.write_table_parquet(table_name, df, write_policy, backup_policy)
     # Overwrite table including primary key duplicates
@@ -642,7 +642,7 @@ def test_write_table_parquet_versioned__primary_key_upsert(db_parquet_versioned)
         #  row 4: (insert, new row)
         #  row 5: (insert, new row)
         df = pd.DataFrame({"col1": [1, 3, 4, 5], "col2": [4, 8, 9, 10]})
-        with patch("InsightBoard.database.database.datetime") as mock_datetime:
+        with patch("InsightBoard.database.db_parquet.datetime") as mock_datetime:
             mock_datetime.now.return_value = datetime(2022, 3, 2, 4, 5, 6)
             db.write_table_parquet(table_name, df, write_policy, backup_policy)
     # Read and check parquet file (sort columns for comparison)
@@ -710,7 +710,7 @@ def test_write_table_parquet_versioned__primary_key_append(db_parquet_versioned)
     df = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
     write_policy = WritePolicy.APPEND
     backup_policy = BackupPolicy.NONE
-    with patch("InsightBoard.database.database.datetime") as mock_datetime:
+    with patch("InsightBoard.database.db_parquet.datetime") as mock_datetime:
         mock_datetime.now.return_value = datetime(2021, 2, 1, 1, 2, 3)
         db.write_table_parquet(table_name, df, write_policy, backup_policy)
     # Overwrite table including primary key duplicates
@@ -719,7 +719,7 @@ def test_write_table_parquet_versioned__primary_key_append(db_parquet_versioned)
     ) as mock_get_primary_key:
         mock_get_primary_key.return_value = "col1"
         df = pd.DataFrame({"col1": [1, 3, 4, 5], "col2": [7, 8, 9, 10]})
-        with patch("InsightBoard.database.database.datetime") as mock_datetime:
+        with patch("InsightBoard.database.db_parquet.datetime") as mock_datetime:
             mock_datetime.now.return_value = datetime(2022, 3, 2, 4, 5, 6)
             db.write_table_parquet(table_name, df, write_policy, backup_policy)
     # Read and check parquet file (sort columns for comparison)
