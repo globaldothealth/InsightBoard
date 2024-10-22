@@ -161,11 +161,14 @@ class Project:
         data_folder = Path(self.get_data_folder())
         if not data_folder.exists():
             return []
-        return [
-            {"filename": f, "label": f.name[: -len(self.database.suffix) - 1]}
-            for f in data_folder.iterdir()
-            if f.is_file() and f.name.endswith(self.database.suffix)
+        datasets = self.database.get_tables_list()
+        labels = [
+            d[: -len(self.database.suffix) - 1]
+            if d.endswith(self.database.suffix)
+            else d
+            for d in datasets
         ]
+        return [{"filename": f, "label": f} for f in labels]
 
     def get_project_parsers(self):
         parsers_folder = Path(self.get_parsers_folder())

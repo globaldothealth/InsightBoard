@@ -8,14 +8,11 @@ from cachetools import cached, TTLCache
 
 
 class DatabaseBackend(Enum):
+    DEFAULT = "parquet"
     PARQUET = "parquet"
     PARQUET_VERSIONED = "parquet_versioned"
-
-
-DatabaseBackendVersion = {
-    DatabaseBackend.PARQUET: "1.0.0",
-    DatabaseBackend.PARQUET_VERSIONED: "1.0.0",
-}
+    SQLITE = "sqlite"
+    DUCKDB = "duckdb"
 
 
 class WritePolicy(Enum):
@@ -33,7 +30,7 @@ class BackupPolicy(Enum):
 class DatabaseBase(ABC):
     def __init__(
         self,
-        backend: DatabaseBackend = DatabaseBackend.PARQUET,
+        backend: DatabaseBackend = DatabaseBackend.DEFAULT,
         data_folder: str = "",
     ):
         self.BACKEND = backend
@@ -132,5 +129,5 @@ class DatabaseBase(ABC):
         pass  # pragma: no cover
 
     @abstractmethod
-    def sql_query(self, query: str) -> pd.DataFrame:
+    def sql_query(self, query: str, tablename: str) -> pd.DataFrame:
         pass  # pragma: no cover

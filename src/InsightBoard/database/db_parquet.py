@@ -12,18 +12,21 @@ from tempfile import NamedTemporaryFile
 
 from InsightBoard.database.db_base import (
     DatabaseBackend,
-    DatabaseBackendVersion,
     WritePolicy,
     BackupPolicy,
     DatabaseBase,
 )
 
 
+DATABASE_PARQUET_VERSION = ("1.0.0",)
+DATABASE_PARQUET_VERSIONED_VERSION = "1.0.0"
+
+
 class DatabaseParquet(DatabaseBase):
     def __init__(self, data_folder: str = ""):
         super().__init__(DatabaseBackend.PARQUET, data_folder)
         self.suffix = "parquet"
-        self.db_version = DatabaseBackendVersion[self.BACKEND]
+        self.db_version = DATABASE_PARQUET_VERSION
 
     # override
     def db_metadata(self):
@@ -158,7 +161,7 @@ class DatabaseParquetVersioned(DatabaseParquet):
         super().__init__(data_folder)
         self.BACKEND = DatabaseBackend.PARQUET_VERSIONED
         self.suffix = "ver.parquet"
-        self.db_version = DatabaseBackendVersion[self.BACKEND]
+        self.db_version = DATABASE_PARQUET_VERSIONED_VERSION
 
     # override (DatabaseBase)
     def read_table(self, table_name: str) -> pd.DataFrame:

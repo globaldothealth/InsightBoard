@@ -160,6 +160,7 @@ class DataChat:
                 return s[1:-1]
             return s
 
+        viz_suggestion = dequote(viz_suggestion.strip())
         fcn_name = (
             viz_suggestion.split("(")[0].strip() if "(" in viz_suggestion else "none"
         )
