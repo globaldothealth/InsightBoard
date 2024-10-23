@@ -26,7 +26,6 @@ DEFAULT_DATACHAT_PROVIDER = DataChat_Providers.GOOGLE_REST
 
 
 class DataChat_Base(ABC):
-
     def __init__(self, model=None, project=None, table=None):
         self.set_model(model)
 

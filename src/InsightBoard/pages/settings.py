@@ -289,5 +289,9 @@ def update_chatbot_api_key(api_key, project):
 )
 def show_api_key(n_clicks, input_type):
     if n_clicks:
-        return ("text", "Hide API key") if input_type == "password" else ("password", "Show API key")
+        return (
+            ("text", "Hide API key")
+            if input_type == "password"
+            else ("password", "Show API key")
+        )
     raise dash.exceptions.PreventUpdate
