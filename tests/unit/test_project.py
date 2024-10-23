@@ -131,12 +131,17 @@ def test_Project_get_reports_list__empty(project):
 
 
 def test_Project_get_project_datasets(project):
-    with TemporaryDirectory() as tmpdir:
+    with (
+        patch("InsightBoard.database.db_parquet.DatabaseParquet.get_tables_list") as mock_tables,
+        TemporaryDirectory() as tmpdir,
+    ):
+        mock_tables.return_value = [
+            "dataset1.parquet",
+            "dataset2.parquet",
+            "dataset3.parquet",
+        ]
         (Path(tmpdir) / "data").mkdir(parents=True, exist_ok=True)
         project.project_folder = tmpdir
-        (Path(tmpdir) / "data" / "dataset1.parquet").touch()
-        (Path(tmpdir) / "data" / "dataset2.parquet").touch()
-        (Path(tmpdir) / "data" / "dataset3.parquet").touch()
         expected_data_list = [
             {"filename": f, "label": f} for f in ["dataset1", "dataset2", "dataset3"]
         ]

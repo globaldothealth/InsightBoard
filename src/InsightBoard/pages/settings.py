@@ -140,6 +140,10 @@ def project_settings(config):
             "label": "Flat file (Parquet, versioned)",
             "value": DatabaseBackend.PARQUET_VERSIONED.name,
         },
+        {
+            "label": "SQL (SQLite)",
+            "value": DatabaseBackend.SQLITE.name,
+        },
     ]
     db_backend = DatabaseBackend.PARQUET.name
     db_backup_policy_list = [
