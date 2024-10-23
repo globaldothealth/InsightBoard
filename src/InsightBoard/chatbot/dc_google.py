@@ -9,7 +9,6 @@ config = ConfigManager()
 
 
 class DataChat_Google_REST(DataChat_Base):
-    SUPPORTED_MODELS = ["gemini-1.5-flash"]
 
     def __init__(self, model=None, project=None, table=None):
         super().__init__(model, project, table)
@@ -28,9 +27,6 @@ class DataChat_Google_REST(DataChat_Base):
         if not model:
             self.model = None
             return
-        if model not in self.SUPPORTED_MODELS:
-            self.model = None
-            raise ValueError(f"Model {model} is not supported")
         self.model = model
 
     # override

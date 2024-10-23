@@ -9,7 +9,6 @@ config = ConfigManager()
 
 
 class DataChat_OpenAI_REST(DataChat_Base):
-    SUPPORTED_MODELS = ["gpt-4o-mini"]
 
     def __init__(self, model=None, project=None, table=None):
         super().__init__(model, project, table)
@@ -22,9 +21,6 @@ class DataChat_OpenAI_REST(DataChat_Base):
 
     # override
     def set_model(self, model):
-        if model not in self.SUPPORTED_MODELS:
-            self.model = None
-            raise ValueError(f"Model {model} is not supported by OpenAI REST API")
         self.model = model
 
     # override

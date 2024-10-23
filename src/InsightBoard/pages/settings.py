@@ -7,6 +7,7 @@ import InsightBoard.utils as utils
 from InsightBoard.config import ConfigManager
 from InsightBoard.chatbot import is_chatbot_enabled
 from InsightBoard.database import DatabaseBackend, BackupPolicy
+from InsightBoard.chatbot import chatbot_model_providers as chatbot_provider
 
 # Register the page
 dash.register_page(__name__, path="/settings")
@@ -93,10 +94,7 @@ def general_settings(config):
 
 
 def chatbot_settings(config):
-    chatbot_model_list = [
-        {"label": "gemini-1.5-flash", "value": "gemini-1.5-flash"},
-        {"label": "gpt-4o-mini", "value": "gpt-4o-mini"},
-    ]
+    chatbot_model_list = [{"label": k, "value": k} for k in sorted(chatbot_provider)]
     chatbot_model = config.get("chatbot.model", None)
     chatbot_api_key = config.get("chatbot.api_key", "")
     return [
@@ -263,15 +261,11 @@ def update_dark_mode(value):
     State("project", "data"),
 )
 def update_chatbot_model(model, project):
-    provider = {
-        "gemini-1.5-flash": "google_rest",
-        "gpt-4o-mini": "openai_rest",
-    }
-    if model not in provider:
+    if model not in chatbot_provider:
         raise ValueError(f"Unable to determine model provider for model: {model}")
     config = ConfigManager()
     config.set("chatbot.model", model)
-    config.set("chatbot.provider", provider[model])
+    config.set("chatbot.provider", chatbot_provider[model])
 
 
 @callback(
