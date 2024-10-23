@@ -162,6 +162,7 @@ class Project:
         if not data_folder.exists():
             return []
         datasets = self.database.get_tables_list()
+        # If the entries end in a suffix then it is (probably) a file list
         labels = [
             d[: -len(self.database.suffix) - 1]
             if d.endswith(self.database.suffix)

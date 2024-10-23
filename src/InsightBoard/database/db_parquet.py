@@ -18,7 +18,7 @@ from InsightBoard.database.db_base import (
 )
 
 
-DATABASE_PARQUET_VERSION = ("1.0.0",)
+DATABASE_PARQUET_VERSION = "1.0.0"
 DATABASE_PARQUET_VERSIONED_VERSION = "1.0.0"
 
 
