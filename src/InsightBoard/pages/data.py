@@ -6,6 +6,7 @@ from dash import dcc, html, dash_table
 from dash import Input, Output, State, callback
 
 import InsightBoard.utils as utils
+import InsightBoard.chatbot as chatbot
 
 # Register the page
 dash.register_page(__name__, path="/data")
@@ -18,6 +19,7 @@ def layout():
         [
             html.H1("Project Data Table"),
             dcc.Store(id="project", storage_type="memory"),  # Store the project name
+            chatbot.layout() if chatbot.is_chatbot_enabled() else None,
             html.H3("Select a table to view"),
             dcc.Dropdown(id="table-dropdown", placeholder="Select a table"),
             html.Div("", id="datatable-report-length"),
@@ -143,6 +145,9 @@ def load_selected_table(selected_table, project):
         project,
         selected_table,
     )
+
+    # Update the chatbot target
+    chatbot.set_table(project, selected_table)
 
     # Dynamically create the DataTable
     return (

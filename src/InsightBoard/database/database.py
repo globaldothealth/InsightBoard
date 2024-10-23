@@ -1,6 +1,7 @@
 import os
 import json
 import shutil
+import sqlite3
 import pandas as pd
 import pyarrow.parquet as pq
 
@@ -9,6 +10,7 @@ from enum import Enum
 from pathlib import Path
 from pyarrow import Table
 from datetime import datetime
+from tempfile import NamedTemporaryFile
 from cachetools import cached, TTLCache
 
 
@@ -136,6 +138,10 @@ class DatabaseBase(ABC):
     def commit_table(self, table_name: str, df: pd.DataFrame):
         pass  # pragma: no cover
 
+    @abstractmethod
+    def sql_query(self, query: str) -> pd.DataFrame:
+        pass  # pragma: no cover
+
 
 class DatabaseParquet(DatabaseBase):
     def __init__(self, data_folder: str = ""):
@@ -254,6 +260,21 @@ class DatabaseParquet(DatabaseBase):
         old_df = old_df[~old_df[primary_key].isin(df[primary_key])]
         # Combine old and new DataFrames (no duplicate primary keys)
         return pd.concat([old_df, df], ignore_index=True)
+
+    # override (DatabaseBase)
+    def sql_query(self, query: str, tablename: str) -> pd.DataFrame:
+        # Read the Parquet file into a Pandas DataFrame and transfer to SQLite
+        #  (inefficient, but proof of concept)
+        data = self.read_table(tablename)
+        with NamedTemporaryFile(suffix=".db", delete=False) as tempfile:
+            Path(tempfile.name).unlink()  # Remove the file if it exists
+            conn = sqlite3.connect(tempfile.name)  # Create or connect
+            data.to_sql(tablename, conn, if_exists="replace", index=False)
+            # Run a SQL query on the SQLite database and close the connection
+            df = pd.read_sql_query(query, conn)
+            conn.close()
+        Path(tempfile.name).unlink()
+        return df
 
 
 class DatabaseParquetVersioned(DatabaseParquet):

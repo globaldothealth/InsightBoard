@@ -26,6 +26,10 @@ class ConfigManager:
             "project": {
                 "folder": (Path.home() / "InsightBoard" / "projects").as_posix()
             },
+            "chatbot": {
+                "model": os.environ.get("CHATBOT_MODEL", None),
+                "api_key": os.environ.get("CHATBOT_API_KEY", None),
+            },
         }
 
         # Ensure the config file exists and load the config
@@ -116,8 +120,20 @@ class ConfigManager:
         if save:
             self.save()
 
+    @staticmethod
+    def remove_null(d):
+        """TOML does not support nil/null values, simply remove them."""
+        for key, value in list(d.items()):
+            if value is None:
+                del d[key]
+            elif isinstance(value, dict):
+                ConfigManager.remove_null(value)
+                if not value:
+                    del d[key]
+        return d
+
     def save(self):
         """Save the configuration to the TOML file."""
         with open(self.config_file, "wb") as file:
-            tomli_w.dump(self.config, file)
+            tomli_w.dump(ConfigManager.remove_null(self.config), file)
         logging.info(f"Configuration saved to {self.config_file}")

@@ -1,8 +1,9 @@
 import os
 import dash
-import InsightBoard.utils as utils
 
 from dash import dcc, html, Input, Output, State, callback
+
+import InsightBoard.utils as utils
 
 # Register the page
 dash.register_page(__name__, path="/reports")

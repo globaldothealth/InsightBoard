@@ -5,6 +5,7 @@ from dash import html, dcc, callback, Input, Output, State
 
 import InsightBoard.utils as utils
 from InsightBoard.config import ConfigManager
+from InsightBoard.chatbot import is_chatbot_enabled
 from InsightBoard.database import DatabaseBackend, BackupPolicy
 
 # Register the page
@@ -13,12 +14,123 @@ dash.register_page(__name__, path="/settings")
 
 # Layout for the Data Page
 def layout():
-    # Load the configuration
     config = ConfigManager()
+
+    tab_chatbot = []
+    if is_chatbot_enabled():
+        tab_chatbot = [
+            dcc.Tab(
+                label="Chatbot",
+                children=[dbc.Card(dbc.CardBody(chatbot_settings(config)))],
+            ),
+        ]
+
+    return html.Div(
+        [
+            html.Div(
+                [
+                    dcc.Store(id="project"),
+                    html.H1("Settings"),
+                    dcc.Tabs(
+                        [
+                            dcc.Tab(
+                                label="General",
+                                children=[
+                                    dbc.Card(dbc.CardBody(general_settings(config)))
+                                ],
+                            ),
+                            *tab_chatbot,
+                            dcc.Tab(
+                                label="Project",
+                                children=[
+                                    dbc.Card(dbc.CardBody(project_settings(config)))
+                                ],
+                            ),
+                        ],
+                    ),
+                ],
+                style={
+                    "width": "67%",
+                    "minWidth": "400px",
+                    "maxWidth": "800px",
+                    "alignItems": "center",
+                },
+            )
+        ],
+        style={
+            "display": "flex",
+            "justifyContent": "center",
+            "alignItems": "center",
+            "height": "100%",
+        },
+    )
+
+
+def general_settings(config):
     project_folder = config.get_project_folder()
-
     dark_mode = config.get("theme.dark_mode", False)
+    return [
+        html.H6("Project folder"),
+        dcc.Input(
+            id="project-folder",
+            value=project_folder,
+            style={"width": "100%"},
+        ),
+        html.H6("Theme"),
+        dbc.Checklist(
+            id="dark-mode-toggle",
+            options=[
+                {
+                    "label": "Dark mode",
+                    "value": 1,
+                },
+            ],
+            value=[1] if dark_mode else [],
+            inline=True,
+            switch=True,
+        ),
+    ]
 
+
+def chatbot_settings(config):
+    chatbot_model_list = [
+        {"label": "gemini-1.5-flash", "value": "gemini-1.5-flash"},
+    ]
+    chatbot_model = config.get("chatbot.model", None)
+    chatbot_api_key = config.get("chatbot.api_key", "")
+    return [
+        html.H6("Model"),
+        dbc.Col(
+            dcc.Dropdown(
+                id="chatbot-model",
+                options=chatbot_model_list,
+                value=chatbot_model,
+                style={"width": "100%"},
+            ),
+            width=12,
+        ),
+        html.P(
+            "This settings is read first from the InsightBoard configuration, "
+            "then environment variable CHATBOT_MODEL",
+            style={"font-weight": "lighter", "opacity": "0.7", "fontSize": "0.8em"},
+        ),
+        html.H6("API key"),
+        dbc.Input(
+            id="chatbot-api-key",
+            type="password",
+            value=chatbot_api_key,
+            style={"width": "100%"},
+        ),
+        html.P(
+            "This settings is read first from the InsightBoard configuration, "
+            "then environment variable CHATBOT_API_KEY",
+            style={"font-weight": "lighter", "opacity": "0.7", "fontSize": "0.8em"},
+        ),
+        dbc.Button("Show API key", id="show-api-key", color="primary"),
+    ]
+
+
+def project_settings(config):
     db_backend_list = [
         {
             "label": "Flat file (Parquet, unversioned)",
@@ -30,99 +142,47 @@ def layout():
         },
     ]
     db_backend = DatabaseBackend.PARQUET.name
-
     db_backup_policy_list = [
         {"label": "None", "value": BackupPolicy.NONE.name},
         {"label": "Timestamp copies", "value": BackupPolicy.TIMESTAMPED_COPIES.name},
     ]
     db_backup = BackupPolicy.NONE.name
-
-    return html.Div(
-        [
-            # Store
-            dcc.Store(id="project"),
-            html.H1(
-                "Settings",
-                style={
-                    "width": "67%",
-                    "minWidth": "400px",
-                    "maxWidth": "800px",
-                    "border": "none",
-                },
+    return [
+        dbc.Alert(
+            "These settings apply to the current project: {project}",
+            id="project-info",
+            color="info",
+        ),
+        html.H6("Backend"),
+        dbc.Col(
+            dcc.Dropdown(
+                id="db-backend-dropdown",
+                options=db_backend_list,
+                value=db_backend,
+                clearable=False,
+                style={"width": "100%"},
             ),
-            dbc.Card(
-                dbc.CardBody(
-                    [
-                        html.H4("Global settings"),
-                        html.P("These settings apply to all projects."),
-                        html.H5("Project folder"),
-                        dcc.Input(
-                            id="project-folder",
-                            value=project_folder,
-                            style={"width": "100%"},
-                        ),
-                        html.H5("Theme"),
-                        dbc.Checklist(
-                            id="dark-mode-toggle",
-                            options=[
-                                {"label": "Dark mode", "value": 1},
-                            ],
-                            value=[1] if dark_mode else [],
-                            inline=True,
-                            switch=True,
-                        ),
-                    ]
-                ),
-                style={"width": "67%", "minWidth": "400px", "maxWidth": "800px"},
+            width=12,
+        ),
+        html.H6("Backup policy"),
+        dbc.Col(
+            dcc.Dropdown(
+                id="db-backup-dropdown",
+                options=db_backup_policy_list,
+                clearable=False,
+                value=db_backup,
+                style={"width": "100%"},
             ),
-            dbc.Card(
-                dbc.CardBody(
-                    [
-                        html.H4("Project settings"),
-                        dbc.Alert(
-                            "These settings apply to the current project: {project}",
-                            id="project-info",
-                            color="info",
-                        ),
-                        html.H5("Database"),
-                        html.H6("Backend"),
-                        dbc.Col(
-                            dcc.Dropdown(
-                                id="db-backend-dropdown",
-                                options=db_backend_list,
-                                value=db_backend,
-                                clearable=False,
-                                style={"width": "100%"},
-                            ),
-                            width=12,
-                        ),
-                        html.H6("Backup policy"),
-                        dbc.Col(
-                            dcc.Dropdown(
-                                id="db-backup-dropdown",
-                                options=db_backup_policy_list,
-                                clearable=False,
-                                value=db_backup,
-                                style={"width": "100%"},
-                            ),
-                            width=12,
-                        ),
-                        html.Br(),
-                        dbc.Button("Set as defaults", color="primary"),
-                    ]
-                ),
-                style={"width": "67%", "minWidth": "400px", "maxWidth": "800px"},
-            ),
-        ],
-        style={
-            "display": "flex",
-            "width": "100%",
-            "justify-content": "center",
-            "align-items": "center",
-            "flex-direction": "column",
-            "gap": "20px",
-        },
-    )
+            width=12,
+        ),
+        html.Br(),
+        dbc.Button(
+            "Set as defaults",
+            id="set-project-defaults",
+            color="primary",
+            disabled=True,
+        ),
+    ]
 
 
 @callback(
@@ -185,5 +245,33 @@ def update_dark_mode(value):
     config = ConfigManager()
     dark_mode = 1 in value
     config.set("theme.dark_mode", dark_mode)
-    config.save()
     return dark_mode
+
+
+@callback(
+    Input("chatbot-model", "value"),
+    State("project", "data"),
+)
+def update_chatbot_model(model, project):
+    config = ConfigManager()
+    config.set("chatbot.model", model)
+
+
+@callback(
+    Input("chatbot-api-key", "value"),
+    State("project", "data"),
+)
+def update_chatbot_api_key(api_key, project):
+    config = ConfigManager()
+    config.set("chatbot.api_key", api_key)
+
+
+@callback(
+    Output("chatbot-api-key", "type"),
+    Input("show-api-key", "n_clicks"),
+    State("chatbot-api-key", "type"),
+)
+def show_api_key(n_clicks, input_type):
+    if n_clicks:
+        return "text" if input_type == "password" else "password"
+    return input_type
