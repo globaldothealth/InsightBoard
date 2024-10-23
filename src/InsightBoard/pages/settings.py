@@ -148,6 +148,10 @@ def project_settings(config):
             "label": "SQL (SQLite)",
             "value": DatabaseBackend.SQLITE.name,
         },
+        {
+            "label": "SQL (DuckDB)",
+            "value": DatabaseBackend.DUCKDB.name,
+        },
     ]
     db_backend = DatabaseBackend.PARQUET.name
     db_backup_policy_list = [

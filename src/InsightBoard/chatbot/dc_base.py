@@ -205,7 +205,7 @@ class DataChat_Base(ABC):
             fig = None
             html_error = [
                 dbc.Alert(
-                    f"Error visualizing data: {str(e)}",
+                    f"Error visualizing data (suggestion: {viz}): {str(e)}",
                     color="warning",
                     style={"fontSize": "0.8rem"},
                 )
