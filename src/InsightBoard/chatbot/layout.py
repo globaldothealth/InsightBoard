@@ -2,7 +2,8 @@ from dash import dcc, html, Input, Output
 import dash_bootstrap_components as dbc
 
 import InsightBoard.chatbot.callbacks  # noqa: F401
-from InsightBoard.chatbot.datachat import dc, ChatbotState
+from InsightBoard.chatbot.datachat import dc
+from InsightBoard.chatbot.state import ChatbotState
 from InsightBoard.config import ConfigManager
 
 state = ChatbotState()
