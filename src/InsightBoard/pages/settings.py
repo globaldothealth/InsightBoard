@@ -95,10 +95,16 @@ def general_settings(config):
 def chatbot_settings(config):
     chatbot_model_list = [
         {"label": "gemini-1.5-flash", "value": "gemini-1.5-flash"},
+        {"label": "gpt-4o-mini", "value": "gpt-4o-mini"},
     ]
     chatbot_model = config.get("chatbot.model", None)
     chatbot_api_key = config.get("chatbot.api_key", "")
     return [
+        dbc.Alert(
+            "You must restart the InsightBoard server for model changes to take effect",
+            id="chatbot-restart-alert",
+            color="warning",
+        ),
         html.H6("Model"),
         dbc.Col(
             dcc.Dropdown(
@@ -257,8 +263,15 @@ def update_dark_mode(value):
     State("project", "data"),
 )
 def update_chatbot_model(model, project):
+    provider = {
+        "gemini-1.5-flash": "google_rest",
+        "gpt-4o-mini": "openai_rest",
+    }
+    if model not in provider:
+        raise ValueError(f"Unable to determine model provider for model: {model}")
     config = ConfigManager()
     config.set("chatbot.model", model)
+    config.set("chatbot.provider", provider[model])
 
 
 @callback(
@@ -272,10 +285,11 @@ def update_chatbot_api_key(api_key, project):
 
 @callback(
     Output("chatbot-api-key", "type"),
+    Output("show-api-key", "value"),
     Input("show-api-key", "n_clicks"),
     State("chatbot-api-key", "type"),
 )
 def show_api_key(n_clicks, input_type):
     if n_clicks:
-        return "text" if input_type == "password" else "password"
-    return input_type
+        return ("text", "Hide API key") if input_type == "password" else ("password", "Show API key")
+    raise dash.exceptions.PreventUpdate

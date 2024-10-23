@@ -1,6 +1,7 @@
 from dash import html, Input, Output, State, callback_context, callback
 
-from InsightBoard.chatbot.datachat import dc, ChatbotState
+from InsightBoard.chatbot.datachat import dc
+from InsightBoard.chatbot.state import ChatbotState
 
 state = ChatbotState()
 
