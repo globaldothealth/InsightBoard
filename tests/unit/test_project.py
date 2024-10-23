@@ -132,7 +132,9 @@ def test_Project_get_reports_list__empty(project):
 
 def test_Project_get_project_datasets(project):
     with (
-        patch("InsightBoard.database.db_parquet.DatabaseParquet.get_tables_list") as mock_tables,
+        patch(
+            "InsightBoard.database.db_parquet.DatabaseParquet.get_tables_list"
+        ) as mock_tables,
         TemporaryDirectory() as tmpdir,
     ):
         mock_tables.return_value = [

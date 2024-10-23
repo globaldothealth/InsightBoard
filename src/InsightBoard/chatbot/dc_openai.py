@@ -9,15 +9,12 @@ config = ConfigManager()
 
 
 class DataChat_OpenAI_REST(DataChat_Base):
-
     def __init__(self, model=None, project=None, table=None):
         super().__init__(model, project, table)
 
     # override
     def base_url(self):
-        return (
-            "https://api.openai.com/v1/chat/completions"
-        )
+        return "https://api.openai.com/v1/chat/completions"
 
     # override
     def set_model(self, model):
@@ -34,9 +31,7 @@ class DataChat_OpenAI_REST(DataChat_Base):
         }
         payload = {
             "model": self.model,
-            "messages": [
-                {"role": "user", "content": c} for c in chat
-            ],
+            "messages": [{"role": "user", "content": c} for c in chat],
             "temperature": 0.7,
         }
         logging.info(f"Sending request to chatbot: {payload}")

@@ -26,7 +26,6 @@ DEFAULT_DATACHAT_PROVIDER = DataChat_Providers.GOOGLE_REST
 
 
 class DataChat_Base(ABC):
-
     def __init__(self, model=None, project=None, table=None):
         self.set_model(model)
 
@@ -205,7 +204,7 @@ class DataChat_Base(ABC):
             fig = None
             html_error = [
                 dbc.Alert(
-                    f"Error visualizing data: {str(e)}",
+                    f"Error visualizing data (suggestion: {viz}): {str(e)}",
                     color="warning",
                     style={"fontSize": "0.8rem"},
                 )

@@ -9,7 +9,6 @@ config = ConfigManager()
 
 
 class DataChat_Google_REST(DataChat_Base):
-
     def __init__(self, model=None, project=None, table=None):
         super().__init__(model, project, table)
 

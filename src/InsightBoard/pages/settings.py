@@ -148,6 +148,10 @@ def project_settings(config):
             "label": "SQL (SQLite)",
             "value": DatabaseBackend.SQLITE.name,
         },
+        {
+            "label": "SQL (DuckDB)",
+            "value": DatabaseBackend.DUCKDB.name,
+        },
     ]
     db_backend = DatabaseBackend.PARQUET.name
     db_backup_policy_list = [
@@ -285,5 +289,9 @@ def update_chatbot_api_key(api_key, project):
 )
 def show_api_key(n_clicks, input_type):
     if n_clicks:
-        return ("text", "Hide API key") if input_type == "password" else ("password", "Show API key")
+        return (
+            ("text", "Hide API key")
+            if input_type == "password"
+            else ("password", "Show API key")
+        )
     raise dash.exceptions.PreventUpdate

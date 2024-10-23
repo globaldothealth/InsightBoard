@@ -14,7 +14,6 @@ chatbot_model_providers = {
     "gemini-1.5-flash-8b": "google_rest",
     "gemini-1.5-pro": "google_rest",
     "gemini-1.0-pro": "google_rest",
-
     # OpenAI (REST API)
     "gpt-4o": "openai_rest",
     "o1-preview": "openai_rest",
