@@ -11,7 +11,10 @@ if __name__ == "__main__":
 
     if args.debug:
         # Dash launches a Flask development server
-        logging.basicConfig(level=logging.DEBUG)
+        root_logger = logging.getLogger()
+        if root_logger.hasHandlers():
+            root_logger.handlers.clear()
+        logging.basicConfig(level=logging.INFO)
         app.run(debug=True)
     else:
         # Otherwise, launch the production server

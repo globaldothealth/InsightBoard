@@ -12,6 +12,7 @@ from InsightBoard.utils import (
     get_custom_assets_folder,
 )
 
+
 # If running from PyInstaller, get the path to the temporary directory
 if hasattr(sys, "_MEIPASS"):
     base_path = Path(sys._MEIPASS)

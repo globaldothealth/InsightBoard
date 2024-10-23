@@ -1,5 +1,7 @@
 import shutil
 import duckdb
+import logging
+import numpy as np
 import pandas as pd
 
 from pathlib import Path
@@ -50,7 +52,10 @@ class DatabaseDuckDB(DatabaseBase):
 
     # override
     def read_table_column(self, tablename: str, column_name: str) -> pd.Series:
-        return self.read_table(tablename)[column_name]
+        conn = duckdb.connect(self.db_filename)
+        df = pd.read_sql_query(f'SELECT "{column_name}" FROM {tablename}', conn)
+        conn.close()
+        return df
 
     # override
     def commit_table(self, tablename: str, df: pd.DataFrame):
@@ -107,33 +112,24 @@ class DatabaseDuckDB(DatabaseBase):
 
     def write_table_create_no_primary_key(self, tablename: str, df: pd.DataFrame, conn):
         # Create a new table (without a primary key)
+        logging.info("Creating table (no primary key): %s", tablename)
+        self.initialise_table(tablename)
+        df = df.replace({np.nan: None})
         df.to_sql(tablename, conn, index=False)
 
     def write_table_create_with_primary_key(
         self, tablename: str, df: pd.DataFrame, primary_key, conn
     ):
-        # Create empty table (only column names and types)
-        df_empty = df.iloc[0:0]
-        df_empty.to_sql(f"_{tablename}", conn, index=False)
-        # Prepare the table schema
-        cursor = conn.execute(f"PRAGMA table_info(_{tablename})")
-        columns_info = cursor.fetchall()
-        columns = []
-        for column_info in columns_info:
-            col_name = column_info[1]
-            col_type = column_info[2]
-            if col_name == primary_key:
-                columns.append(f'"{col_name}" {col_type} PRIMARY KEY')
-            else:
-                columns.append(f'"{col_name}" {col_type}')
-        # Create the new table
-        conn.execute(f"CREATE TABLE {tablename} ({', '.join(columns)})")
-        conn.execute(f"DROP TABLE _{tablename}")
-        # Populate table
+        # Create a new table (with a primary key)
+        logging.info("Creating table (with primary key): %s", tablename)
+        self.initialise_table(tablename)
+        df = df.replace({np.nan: None})
         df.to_sql(tablename, conn, index=False, if_exists="append")
 
     def write_table_append(self, tablename: str, df: pd.DataFrame, conn):
         # Only add primary keys that are not already in the table
+        logging.info("Appending to table: %s", tablename)
+        df = df.replace({np.nan: None})
         for index, row in df.iterrows():
             columns = '"' + '", "'.join(row.index) + '"'
             placeholders = ", ".join("?" for _ in row)
@@ -146,7 +142,9 @@ class DatabaseDuckDB(DatabaseBase):
 
     def write_table_upsert(self, tablename: str, df: pd.DataFrame, conn):
         # Update the table with the new data
+        logging.info("Upserting into table: %s", tablename)
         primary_key = self.get_primary_key(tablename)
+        df = df.replace({np.nan: None})
         for index, row in df.iterrows():
             columns = '"' + '", "'.join(row.index) + '"'
             placeholders = ", ".join("?" for _ in row)
@@ -160,3 +158,47 @@ class DatabaseDuckDB(DatabaseBase):
             """
             conn.execute(query, tuple(row))
         conn.commit()
+
+    def initialise_table(self, tablename: str):
+        conn = duckdb.connect(self.db_filename)
+        schema = self.get_table_schema(tablename)
+        columns = schema.get("properties", {})
+        column_definitions = []
+        for col_name, props in columns.items():
+            sql_type = self.json_type_to_sql(props)
+            col_def = f'"{col_name}" {sql_type}'
+            if props.get("PrimaryKey", False):
+                col_def += " PRIMARY KEY"
+            column_definitions.append(col_def)
+        sql_schema = ", ".join(column_definitions)
+        conn.execute(f"CREATE TABLE {tablename} ({sql_schema});")
+        conn.close()
+
+    def json_type_to_sql(self, props):
+        if "enum" in props:
+            return "TEXT"
+        json_types = props.get("type", ["string"])
+        if not isinstance(json_types, list):
+            json_types = [json_types]
+        json_format = props.get("format", "")
+        if "string" in json_types and json_format in ["date"]:
+            return "DATE"
+        elif "string" in json_types and json_format in ["date-time"]:
+            return "TIMESTAMP"
+        elif "string" in json_types and json_format in ["time"]:
+            return "TIME"
+        elif "string" in json_types and json_format in ["uuid"]:
+            return "TEXT"
+        elif "string" in json_types:
+            return "TEXT"
+        elif "integer" in json_types:
+            return "INTEGER"
+        elif "number" in json_types:
+            return "REAL"
+        elif "boolean" in json_types:
+            return "BOOLEAN"
+        elif "array" in json_types:
+            return "TEXT"  # Could use ARRAY here
+        else:
+            logging.warn(f"Unsupported JSON type: {json_types}, defaulting to TEXT")
+            return "TEXT"
