@@ -80,3 +80,11 @@ def ensure_schema_ordering(columns, project, table, prepend=None, append=None):
     except Exception as e:
         logging.debug(f"Error in ensure_schema_ordering: {str(e)}")
     return columns
+
+
+def check_module(module_name):
+    try:
+        importlib.import_module(module_name)
+        return True
+    except ImportError:
+        return False

@@ -1,10 +1,14 @@
-import duckdb
 import logging
 
 from pathlib import Path
 
 from InsightBoard.database.db_sql import DatabaseSQL
 from InsightBoard.database.db_base import DatabaseBackend
+
+try:
+    import duckdb
+except ImportError:
+    duckdb = None
 
 DATABASE_DUCKDB_VERSION = "1.0.0"
 
@@ -15,6 +19,13 @@ class DatabaseDuckDB(DatabaseSQL):
         self.suffix = "db"
         self.db_version = DATABASE_DUCKDB_VERSION
         self.db_filename = Path(self.data_folder) / "db.duckdb"
+
+        if not duckdb:
+            raise ImportError(
+                "DuckDB is not installed, "
+                "but is available as an optional dependency. "
+                "Please install it using 'pip install \"insightboard[duckdb]\"'."
+            )
         self.db_backend = duckdb
 
     # override
