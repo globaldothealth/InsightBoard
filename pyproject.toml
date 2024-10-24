@@ -16,10 +16,12 @@ dependencies = [
     "waitress>=3.0.0",
     "cachetools>=5.5.0",
     "dash-bootstrap-templates>=1.2.4",
-    "duckdb>=1.1.2",
 ]
 scripts = { InsightBoard = "InsightBoard:main" }
 dynamic = ["version"]
+
+[project.optional-dependencies]
+duckdb = ["duckdb>=1.1.2"]
 
 [tool.setuptools_scm]
 version_scheme = "python-simplified-semver"

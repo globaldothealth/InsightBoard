@@ -1,162 +1,67 @@
-import shutil
-import duckdb
-import pandas as pd
+import logging
 
 from pathlib import Path
-from datetime import datetime
 
-from InsightBoard.database.db_base import (
-    DatabaseBase,
-    DatabaseBackend,
-    BackupPolicy,
-    WritePolicy,
-)
+from InsightBoard.database.db_sql import DatabaseSQL
+from InsightBoard.database.db_base import DatabaseBackend
+
+try:
+    import duckdb
+except ImportError:
+    duckdb = None
 
 DATABASE_DUCKDB_VERSION = "1.0.0"
 
 
-class DatabaseDuckDB(DatabaseBase):
+class DatabaseDuckDB(DatabaseSQL):
     def __init__(self, data_folder: str = ""):
         super().__init__(DatabaseBackend.DUCKDB, data_folder)
         self.suffix = "db"
         self.db_version = DATABASE_DUCKDB_VERSION
         self.db_filename = Path(self.data_folder) / "db.duckdb"
 
-    # override
-    def db_metadata(self):
-        return {
-            "version": self.db_version,
-            "last_updated": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
-        }
-
-    # override
-    def get_tables_list(self):
-        if not self.db_filename.exists():
-            return []
-        else:
-            conn = duckdb.connect(self.db_filename)
-            tables = conn.execute(
-                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'main'"
-            ).fetchall()
-            conn.close()
-            return [table[0] for table in tables]
-
-    # override
-    def read_table(self, tablename: str) -> pd.DataFrame:
-        conn = duckdb.connect(self.db_filename)
-        df = pd.read_sql_query(f"SELECT * FROM {tablename}", conn)
-        conn.close()
-        return df
-
-    # override
-    def read_table_column(self, tablename: str, column_name: str) -> pd.Series:
-        return self.read_table(tablename)[column_name]
-
-    # override
-    def commit_table(self, tablename: str, df: pd.DataFrame):
-        if len(df) == 0:
-            return
-        if not self.does_table_exist(tablename):
-            # Create the table
-            conn = duckdb.connect(self.db_filename)
-            primary_key = self.get_primary_key(tablename)
-            if not primary_key:
-                # Create a new table (without a primary key)
-                self.write_table_create_no_primary_key(tablename, df, conn)
-            else:
-                # Create a new table (with a primary key)
-                self.write_table_create_with_primary_key(
-                    tablename, df, primary_key, conn
-                )
-        else:
-            # Append or upsert into an existing table
-            self.backup(self.db_filename)
-            conn = duckdb.connect(self.db_filename)
-            if self.write_policy == WritePolicy.APPEND:
-                self.write_table_append(tablename, df, conn)
-            elif self.write_policy == WritePolicy.UPSERT:
-                self.write_table_upsert(tablename, df, conn)
-            else:
-                raise ValueError(f"Invalid write policy: {self.write_policy}")
-
-    # override
-    def sql_query(self, query: str, tablename: str) -> pd.DataFrame:
-        conn = duckdb.connect(self.db_filename)
-        df = pd.read_sql_query(query, conn)
-        conn.close()
-        return df
-
-    # Utility functions
-
-    def backup(self, file_path, backup_policy: BackupPolicy = None):
-        backup_policy = backup_policy or self.backup_policy
-        if backup_policy == BackupPolicy.TIMESTAMPED_COPIES:
-            if not isinstance(file_path, Path):
-                file_path = Path(file_path)
-            backup_folder = Path(self.data_folder) / "backup"
-            backup_folder.mkdir(parents=True, exist_ok=True)
-            datetime_stamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
-            file_stem = file_path.stem
-            shutil.copy(
-                file_path,
-                backup_folder / f"{file_stem}_{datetime_stamp}.{self.suffix}",
+        if not duckdb:
+            raise ImportError(
+                "DuckDB is not installed, "
+                "but is available as an optional dependency. "
+                "Please install it using 'pip install \"insightboard[duckdb]\"'."
             )
+        self.db_backend = duckdb
 
-    def does_table_exist(self, tablename: str):
-        return tablename in self.get_tables_list()
+    # override
+    def json_type_to_sql(self, props):
+        if "enum" in props:
+            return "TEXT"
+        json_types = props.get("type", ["string"])
+        if not isinstance(json_types, list):
+            json_types = [json_types]
+        json_format = props.get("format", "")
 
-    def write_table_create_no_primary_key(self, tablename: str, df: pd.DataFrame, conn):
-        # Create a new table (without a primary key)
-        df.to_sql(tablename, conn, index=False)
-
-    def write_table_create_with_primary_key(
-        self, tablename: str, df: pd.DataFrame, primary_key, conn
-    ):
-        # Create empty table (only column names and types)
-        df_empty = df.iloc[0:0]
-        df_empty.to_sql(f"_{tablename}", conn, index=False)
-        # Prepare the table schema
-        cursor = conn.execute(f"PRAGMA table_info(_{tablename})")
-        columns_info = cursor.fetchall()
-        columns = []
-        for column_info in columns_info:
-            col_name = column_info[1]
-            col_type = column_info[2]
-            if col_name == primary_key:
-                columns.append(f'"{col_name}" {col_type} PRIMARY KEY')
+        def base_type(json_types):
+            if "string" in json_types and json_format in ["date"]:
+                return "DATE"
+            elif "string" in json_types and json_format in ["date-time"]:
+                return "TIMESTAMP"
+            elif "string" in json_types and json_format in ["time"]:
+                return "TIME"
+            elif "string" in json_types and json_format in ["uuid"]:
+                return "TEXT"
+            elif "string" in json_types:
+                return "TEXT"
+            elif "integer" in json_types:
+                return "INTEGER"
+            elif "number" in json_types:
+                return "REAL"
+            elif "boolean" in json_types:
+                return "BOOLEAN"
+            elif "array" in json_types:
+                return "TEXT"  # Could use ARRAY here
             else:
-                columns.append(f'"{col_name}" {col_type}')
-        # Create the new table
-        conn.execute(f"CREATE TABLE {tablename} ({', '.join(columns)})")
-        conn.execute(f"DROP TABLE _{tablename}")
-        # Populate table
-        df.to_sql(tablename, conn, index=False, if_exists="append")
+                logging.warn(f"Unsupported JSON type: {json_types}, defaulting to TEXT")
+                return "TEXT"
 
-    def write_table_append(self, tablename: str, df: pd.DataFrame, conn):
-        # Only add primary keys that are not already in the table
-        for index, row in df.iterrows():
-            columns = '"' + '", "'.join(row.index) + '"'
-            placeholders = ", ".join("?" for _ in row)
-            query = f"""
-            INSERT OR IGNORE INTO {tablename} ({columns})
-            VALUES ({placeholders})
-            """
-            conn.execute(query, tuple(row))
-        conn.commit()
-
-    def write_table_upsert(self, tablename: str, df: pd.DataFrame, conn):
-        # Update the table with the new data
-        primary_key = self.get_primary_key(tablename)
-        for index, row in df.iterrows():
-            columns = '"' + '", "'.join(row.index) + '"'
-            placeholders = ", ".join("?" for _ in row)
-            update_placeholders = ", ".join(
-                f'"{col}"=excluded."{col}"' for col in row.index if col != primary_key
-            )
-            query = f"""
-            INSERT INTO {tablename} ({columns})
-            VALUES ({placeholders})
-            ON CONFLICT("{primary_key}") DO UPDATE SET {update_placeholders}
-            """
-            conn.execute(query, tuple(row))
-        conn.commit()
+        # Check for nullability
+        sql_type = base_type(json_types)
+        if self.field_is_nullable(props):
+            sql_type = f"{sql_type} NULL"
+        return sql_type

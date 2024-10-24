@@ -1,6 +1,7 @@
 import math
 import dash
 import logging
+import traceback
 import pandas as pd
 import dash_bootstrap_components as dbc
 
@@ -1174,6 +1175,8 @@ def commit_to_database(
             projectObj.database.commit_tables_dict(table_names, datasets)
             return dbc.Alert("Data committed to database.", color="success")
         except Exception as e:
+            logging.error(f"Error committing data to database: {str(e)}")
+            logging.error(traceback.format_exc())
             return dbc.Alert(f"Error committing data to file: {str(e)}", color="danger")
 
     return "No data committed yet."

@@ -1,8 +1,10 @@
 import os
 import json
 import shutil
+import logging
 import sqlite3
 import pandas as pd
+import pyarrow as pa
 import pyarrow.parquet as pq
 
 from pathlib import Path
@@ -61,6 +63,20 @@ class DatabaseParquet(DatabaseBase):
     def commit_table(self, table_name: str, df: pd.DataFrame):
         self.write_table_parquet(table_name, df)
 
+    # override
+    def sql_query(self, query: str, tablename: str) -> pd.DataFrame:
+        # Read the Parquet file into a Pandas DataFrame and transfer to SQLite
+        data = self.read_table(tablename)
+        with NamedTemporaryFile(suffix=".db", delete=False) as tempfile:
+            Path(tempfile.name).unlink()  # Remove the file if it exists
+            conn = sqlite3.connect(tempfile.name)  # Create or connect
+            data.to_sql(tablename, conn, if_exists="replace", index=False)
+            # Run a SQL query on the SQLite database and close the connection
+            df = pd.read_sql_query(query, conn)
+            conn.close()
+        Path(tempfile.name).unlink()
+        return df
+
     # Utility functions
 
     def backup(self, file_path, backup_policy: BackupPolicy = None):
@@ -113,17 +129,72 @@ class DatabaseParquet(DatabaseBase):
                         )
         else:
             # First time writing to the file
-            combined_df = self.dataframe_new(df)
+            combined_df = self.dataframe_new(df, table_name)
         # Write the updated DataFrame to the Parquet file
-        table = Table.from_pandas(combined_df)
-        table = table.replace_schema_metadata(self.db_metadata())  # Add metadata
+        if isinstance(combined_df, Table):
+            table = combined_df
+        elif isinstance(combined_df, pd.DataFrame):
+            table = Table.from_pandas(combined_df)
+        else:
+            raise ValueError("Invalid DataFrame type.")
+        # Pad any missing columns with null values
+        table = self.pad_missing_columns(table, table_name)
+        table = table.replace_schema_metadata(self.db_metadata())
         pq.write_table(table, file_path)
         # Create a timestamped version of the database as a backup
         self.backup(file_path)
 
-    def dataframe_new(self, df):
-        # Create a new DataFrame
-        return df.copy()
+    def pad_missing_columns(self, table: pa.Table, table_name) -> pa.Table:
+        schema = self.get_table_schema(table_name)
+        columns = schema.get("properties", {}).keys()
+        for col_name in columns:
+            if col_name not in table.column_names:
+                table = table.append_column(col_name, pa.array([None] * len(table)))
+        return table
+
+    # Function to map JSON types to PyArrow types
+    def json_type_to_pyarrow(self, json_type, json_format=None):
+        if "string" in json_type:
+            return pa.string()
+        elif "integer" in json_type:
+            return pa.int64()
+        elif "number" in json_type:
+            return pa.float64()
+        elif "boolean" in json_type:
+            return pa.bool_()
+        elif "array" in json_type:
+            return pa.string()  # Default to string, can be pa.list_(pa.string())
+        else:
+            return pa.string()
+            logging.warn(f"Unrecognised JSON type: {json_type}")
+
+    def json_schema_to_pyarrow(self, json_schema):
+        fields = []
+        # Extract the fields and types
+        for field_name, field_props in json_schema.get("properties", {}).items():
+            json_type = field_props.get("type", "string")
+            if not isinstance(json_type, list):
+                json_type = [json_type]
+            nullable = self.field_is_nullable(field_props)
+            json_format = field_props.get("format")
+            # Convert JSON type to equivalent PyArrow type
+            pyarrow_type = self.json_type_to_pyarrow(json_type, json_format)
+            field = pa.field(field_name, pyarrow_type, nullable=nullable)
+            fields.append(field)
+        return pa.schema(fields)
+
+    def dataframe_new(self, df, table_name):
+        # Convert json schema to pyarrow schema
+        json_schema = self.get_table_schema(table_name)
+        schema = self.json_schema_to_pyarrow(json_schema)
+        # Pad missing columns with null values
+        columns = json_schema.get("properties", {}).keys()
+        for col_name in columns:
+            if col_name not in df.columns:
+                df[col_name] = None
+        # Create Table from pandas dataframe using the schema
+        table = pa.Table.from_pandas(df, schema=schema)
+        return table
 
     def dataframe_append(self, df, old_df, primary_key=None):
         if not primary_key:
@@ -139,21 +210,6 @@ class DatabaseParquet(DatabaseBase):
         old_df = old_df[~old_df[primary_key].isin(df[primary_key])]
         # Combine old and new DataFrames (no duplicate primary keys)
         return pd.concat([old_df, df], ignore_index=True)
-
-    # override (DatabaseBase)
-    def sql_query(self, query: str, tablename: str) -> pd.DataFrame:
-        # Read the Parquet file into a Pandas DataFrame and transfer to SQLite
-        #  (inefficient, but proof of concept)
-        data = self.read_table(tablename)
-        with NamedTemporaryFile(suffix=".db", delete=False) as tempfile:
-            Path(tempfile.name).unlink()  # Remove the file if it exists
-            conn = sqlite3.connect(tempfile.name)  # Create or connect
-            data.to_sql(tablename, conn, if_exists="replace", index=False)
-            # Run a SQL query on the SQLite database and close the connection
-            df = pd.read_sql_query(query, conn)
-            conn.close()
-        Path(tempfile.name).unlink()
-        return df
 
 
 class DatabaseParquetVersioned(DatabaseParquet):
@@ -195,13 +251,22 @@ class DatabaseParquetVersioned(DatabaseParquet):
         return json.dumps(data)
 
     # override (DatabaseParquet)
-    def dataframe_new(self, df):
-        # Add metadata columns to the new DataFrame
-        df = df.copy()
-        df.loc[:, ["_version"]] = 1
-        df.loc[:, ["_deleted"]] = False
-        df.loc[:, ["_metadata"]] = self.row_metadata()
-        return df
+    def dataframe_new(self, df, table_name):
+        # Add metadata columns to the new Table
+        table = super().dataframe_new(df, table_name)
+        table = table.append_column(
+            "_version",
+            pa.array([1] * len(df), type=pa.int64()),
+        )
+        table = table.append_column(
+            "_deleted",
+            pa.array([False] * len(df), type=pa.bool_()),
+        )
+        table = table.append_column(
+            "_metadata",
+            pa.array([self.row_metadata()] * len(df), type=pa.string()),
+        )
+        return table
 
     # override (DatabaseParquet)
     def dataframe_append(self, df, old_df, primary_key):
