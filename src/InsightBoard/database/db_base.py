@@ -119,9 +119,9 @@ class DatabaseBase(ABC):
         return (
             props.get("nullable", False)
             or (None in json_type)
-            or ('null' in json_type)
+            or ("null" in json_type)
             or (None in json_enum)
-            or ('null' in json_enum)
+            or ("null" in json_enum)
         )
 
     @abstractmethod
