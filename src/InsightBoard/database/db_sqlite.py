@@ -29,8 +29,6 @@ class DatabaseSQLite(DatabaseSQL):
             if "string" in json_types:
                 # Note that SQLite does not support json string 'format's (e.g. 'date-time')
                 return "TEXT"
-            elif "string" in json_types:
-                return "TEXT"
             elif "integer" in json_types:
                 return "INTEGER"
             elif "number" in json_types:
@@ -45,6 +43,6 @@ class DatabaseSQLite(DatabaseSQL):
 
         # Check for nullability
         sql_type = base_type(json_types)
-        if "null" in json_types:
+        if self.field_is_nullable(props):
             sql_type = f"{sql_type} NULL"
         return sql_type

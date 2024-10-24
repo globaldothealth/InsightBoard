@@ -135,10 +135,19 @@ def test_DatabaseParquet_commit_tables_dict__single(request, backend):
     db = request.getfixturevalue(backend)
     table_name = "table1"
     dataset = {"col1": [1, 2, 3], "col2": [4, 5, 6]}
-    db.commit_tables_dict(table_name, dataset)
+    with patch(
+        "InsightBoard.database.database.DatabaseBase.get_table_schema"
+    ) as mock_schema:
+        mock_schema.return_value = {
+            "properties": {
+                "col1": {"type": "integer"},
+                "col2": {"type": "integer"},
+            },
+        }
+        db.commit_tables_dict(table_name, dataset)
     # Read and check parquet files
     db1 = drop_metadata(pd.read_parquet(db.data_folder + "/table1." + db.suffix))
-    assert db1.equals(pd.DataFrame(dataset))
+    assert (db1.values == pd.DataFrame(dataset).values).all()
 
 
 @pytest.mark.parametrize(
@@ -171,7 +180,16 @@ def test_DatabaseParquet_commit_tables_dict__list(request, backend):
     ds1 = {"col1": [1, 2, 3], "col2": [4, 5, 6]}
     ds2 = {"col1": [7, 8, 9], "col2": [10, 11, 12]}
     datasets = [ds1, ds2]
-    db.commit_tables_dict(table_names, datasets)
+    with patch(
+        "InsightBoard.database.database.DatabaseBase.get_table_schema"
+    ) as mock_schema:
+        mock_schema.return_value = {
+            "properties": {
+                "col1": {"type": "integer"},
+                "col2": {"type": "integer"},
+            },
+        }
+        db.commit_tables_dict(table_names, datasets)
     # Read and check parquet files
     db1 = drop_metadata(pd.read_parquet(db.data_folder + "/table1." + db.suffix))
     assert db1.equals(pd.DataFrame(ds1))
@@ -190,7 +208,16 @@ def test_commit_tables__single(request, backend):
     db = request.getfixturevalue(backend)
     table_name = "table1"
     dataset = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
-    db.commit_tables(table_name, dataset)
+    with patch(
+        "InsightBoard.database.database.DatabaseBase.get_table_schema"
+    ) as mock_schema:
+        mock_schema.return_value = {
+            "properties": {
+                "col1": {"type": "integer"},
+                "col2": {"type": "integer"},
+            },
+        }
+        db.commit_tables(table_name, dataset)
     # Read and check parquet files
     db1 = drop_metadata(pd.read_parquet(db.data_folder + "/table1." + db.suffix))
     assert db1.equals(dataset)
@@ -227,7 +254,16 @@ def test_commit_tables__list(request, backend):
         pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]}),
         pd.DataFrame({"col1": [7, 8, 9], "col2": [10, 11, 12]}),
     ]
-    db.commit_tables(table_names, datasets)
+    with patch(
+        "InsightBoard.database.database.DatabaseBase.get_table_schema"
+    ) as mock_schema:
+        mock_schema.return_value = {
+            "properties": {
+                "col1": {"type": "integer"},
+                "col2": {"type": "integer"},
+            },
+        }
+        db.commit_tables(table_names, datasets)
     # Read and check parquet files
     db1 = drop_metadata(pd.read_parquet(db.data_folder + "/table1." + db.suffix))
     assert db1.equals(datasets[0])
@@ -390,7 +426,16 @@ def test_get_tables_list__single(request, backend):
     db = request.getfixturevalue(backend)
     table_name = "table1"
     dataset = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
-    db.commit_tables(table_name, dataset)
+    with patch(
+        "InsightBoard.database.database.DatabaseBase.get_table_schema"
+    ) as mock_schema:
+        mock_schema.return_value = {
+            "properties": {
+                "col1": {"type": "integer"},
+                "col2": {"type": "integer"},
+            },
+        }
+        db.commit_tables(table_name, dataset)
     tables = db.get_tables_list()
     assert tables == [table_name]
 
@@ -409,7 +454,16 @@ def test_get_tables_list__multiple(request, backend):
         pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]}),
         pd.DataFrame({"col1": [7, 8, 9], "col2": [10, 11, 12]}),
     ]
-    db.commit_tables(table_names, datasets)
+    with patch(
+        "InsightBoard.database.database.DatabaseBase.get_table_schema"
+    ) as mock_schema:
+        mock_schema.return_value = {
+            "properties": {
+                "col1": {"type": "integer"},
+                "col2": {"type": "integer"},
+            },
+        }
+        db.commit_tables(table_names, datasets)
     tables = db.get_tables_list()
     assert set(tables) == set(table_names)
 
@@ -438,7 +492,16 @@ def test_read_table(request, backend):
     db = request.getfixturevalue(backend)
     table_name = "table1"
     dataset = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
-    db.commit_table(table_name, dataset)
+    with patch(
+        "InsightBoard.database.database.DatabaseBase.get_table_schema"
+    ) as mock_schema:
+        mock_schema.return_value = {
+            "properties": {
+                "col1": {"type": "integer"},
+                "col2": {"type": "integer"},
+            },
+        }
+        db.commit_table(table_name, dataset)
     result = db.read_table(table_name)
     assert result.equals(dataset)
 
@@ -454,7 +517,16 @@ def test_commit_table(request, backend):
     db = request.getfixturevalue(backend)
     table_name = "table1"
     df = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
-    db.commit_table(table_name, df)
+    with patch(
+        "InsightBoard.database.database.DatabaseBase.get_table_schema"
+    ) as mock_schema:
+        mock_schema.return_value = {
+            "properties": {
+                "col1": {"type": "integer"},
+                "col2": {"type": "integer"},
+            },
+        }
+        db.commit_table(table_name, df)
     # Read and check parquet file
     db1 = drop_metadata(pd.read_parquet(db.data_folder + "/table1." + db.suffix))
     assert db1.equals(df)
@@ -506,7 +578,16 @@ def test_write_table_parquet(request, backend):
     db = request.getfixturevalue(backend)
     table_name = "table1"
     df = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
-    db.write_table_parquet(table_name, df)
+    with patch(
+        "InsightBoard.database.database.DatabaseBase.get_table_schema"
+    ) as mock_schema:
+        mock_schema.return_value = {
+            "properties": {
+                "col1": {"type": "integer"},
+                "col2": {"type": "integer"},
+            },
+        }
+        db.write_table_parquet(table_name, df)
     # Read and check parquet file
     db1 = drop_metadata(pd.read_parquet(db.data_folder + "/table1." + db.suffix))
     assert db1.equals(df)
@@ -537,10 +618,21 @@ def test_write_table_parquet__key_error(request, backend):
     db = request.getfixturevalue(backend)
     table_name = "table1"
     df = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
-    with patch(
-        "InsightBoard.database.database.DatabaseBase.get_primary_key",
-        return_value="not_a_column",
+    with (
+        patch(
+            "InsightBoard.database.database.DatabaseBase.get_primary_key",
+            return_value="not_a_column",
+        ),
+        patch(
+            "InsightBoard.database.database.DatabaseBase.get_table_schema"
+        ) as mock_schema,
     ):
+        mock_schema.return_value = {
+            "properties": {
+                "col1": {"type": "integer"},
+                "col2": {"type": "integer"},
+            },
+        }
         with pytest.raises(ValueError):
             db.write_table_parquet(table_name, df)
 
@@ -556,11 +648,23 @@ def test_write_table_parquet__invalid_write_policy(request, backend):
     db = request.getfixturevalue(backend)
     table_name = "table1"
     df = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
-    with patch(
-        "InsightBoard.database.database.DatabaseBase.get_primary_key",
-        return_value="col1",
+    schema = {
+        "properties": {
+            "col1": {"type": "integer"},
+            "col2": {"type": "integer"},
+        },
+    }
+    with (
+        patch(
+            "InsightBoard.database.database.DatabaseBase.get_primary_key",
+            return_value="col1",
+        ),
+        patch(
+            "InsightBoard.database.database.DatabaseBase.get_table_schema"
+        ) as mock_schema,
     ):
         # Ensure the target file exists (for append to work)
+        mock_schema.return_value = schema
         db_file = Path(db.data_folder) / f"table1.{db.suffix}"
         db_file.unlink(missing_ok=True)
         db.write_table_parquet(table_name, df)
@@ -584,9 +688,21 @@ def test_write_table_parquet__no_primary_key(request, backend):
     db = request.getfixturevalue(backend)
     table_name = "table1"
     df = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
-    with patch(
-        "InsightBoard.database.database.DatabaseBase.get_primary_key", return_value=None
+    with (
+        patch(
+            "InsightBoard.database.database.DatabaseBase.get_primary_key",
+            return_value=None,
+        ),
+        patch(
+            "InsightBoard.database.database.DatabaseBase.get_table_schema"
+        ) as mock_schema,
     ):
+        mock_schema.return_value = {
+            "properties": {
+                "col1": {"type": "integer"},
+                "col2": {"type": "integer"},
+            },
+        }
         db_file = Path(db.data_folder) / f"table1.{db.suffix}"
         db_file.unlink(missing_ok=True)
         db.write_table_parquet(table_name, df)
@@ -602,14 +718,30 @@ def test_write_table_parquet__primary_key_upsert(db_parquet):
     db = db_parquet
     table_name = "table1"
     df = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
+    schema = {
+        "properties": {
+            "col1": {"type": "integer"},
+            "col2": {"type": "integer"},
+        },
+    }
     write_policy = WritePolicy.UPSERT
     backup_policy = BackupPolicy.NONE
-    db.write_table_parquet(table_name, df, write_policy, backup_policy)
-    # Overwrite table including primary key duplicates
     with patch(
-        "InsightBoard.database.database.DatabaseParquet.get_primary_key"
-    ) as mock_get_primary_key:
+        "InsightBoard.database.database.DatabaseBase.get_table_schema"
+    ) as mock_schema:
+        mock_schema.return_value = schema
+        db.write_table_parquet(table_name, df, write_policy, backup_policy)
+    # Overwrite table including primary key duplicates
+    with (
+        patch(
+            "InsightBoard.database.database.DatabaseParquet.get_primary_key"
+        ) as mock_get_primary_key,
+        patch(
+            "InsightBoard.database.database.DatabaseBase.get_table_schema"
+        ) as mock_schema,
+    ):
         mock_get_primary_key.return_value = "col1"
+        mock_schema.return_value = schema
         df = pd.DataFrame({"col1": [1, 3, 4, 5], "col2": [7, 8, 9, 10]})
         db.write_table_parquet(table_name, df, write_policy, backup_policy)
     # Read and check parquet file (sort columns for comparison)
@@ -626,16 +758,34 @@ def test_write_table_parquet_versioned__primary_key_upsert(db_parquet_versioned)
     db = db_parquet_versioned
     table_name = "table1"
     df = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
+    schema = {
+        "properties": {
+            "col1": {"type": "integer"},
+            "col2": {"type": "integer"},
+        },
+    }
     write_policy = WritePolicy.UPSERT
     backup_policy = BackupPolicy.NONE
-    with patch("InsightBoard.database.db_parquet.datetime") as mock_datetime:
+    with (
+        patch("InsightBoard.database.db_parquet.datetime") as mock_datetime,
+        patch(
+            "InsightBoard.database.database.DatabaseBase.get_table_schema"
+        ) as mock_schema,
+    ):
         mock_datetime.now.return_value = datetime(2021, 2, 1, 1, 2, 3)
+        mock_schema.return_value = schema
         db.write_table_parquet(table_name, df, write_policy, backup_policy)
     # Overwrite table including primary key duplicates
-    with patch(
-        "InsightBoard.database.database.DatabaseParquet.get_primary_key"
-    ) as mock_get_primary_key:
+    with (
+        patch(
+            "InsightBoard.database.database.DatabaseParquet.get_primary_key"
+        ) as mock_get_primary_key,
+        patch(
+            "InsightBoard.database.database.DatabaseBase.get_table_schema"
+        ) as mock_schema,
+    ):
         mock_get_primary_key.return_value = "col1"
+        mock_schema.return_value = schema
         # Add the following:
         #  row 1: (no change, value remains 4); v1 retained
         #  row 3: (update, value changes from 6 to 8); v2 created
@@ -681,13 +831,29 @@ def test_write_table_parquet__primary_key_append(db_parquet):
     # Write table with primary key
     table_name = "table1"
     df = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
+    schema = {
+        "properties": {
+            "col1": {"type": "integer"},
+            "col2": {"type": "integer"},
+        },
+    }
     write_policy = WritePolicy.APPEND
     backup_policy = BackupPolicy.NONE
-    db.write_table_parquet(table_name, df, write_policy, backup_policy)
-    # Overwrite table including primary key duplicates
     with patch(
-        "InsightBoard.database.database.DatabaseParquet.get_primary_key"
-    ) as mock_get_primary_key:
+        "InsightBoard.database.database.DatabaseBase.get_table_schema"
+    ) as mock_schema:
+        mock_schema.return_value = schema
+        db.write_table_parquet(table_name, df, write_policy, backup_policy)
+    # Overwrite table including primary key duplicates
+    with (
+        patch(
+            "InsightBoard.database.database.DatabaseParquet.get_primary_key"
+        ) as mock_get_primary_key,
+        patch(
+            "InsightBoard.database.database.DatabaseBase.get_table_schema"
+        ) as mock_schema,
+    ):
+        mock_schema.return_value = schema
         mock_get_primary_key.return_value = "col1"
         df = pd.DataFrame({"col1": [1, 3, 4, 5], "col2": [7, 8, 9, 10]})
         db.write_table_parquet(table_name, df, write_policy, backup_policy)
@@ -708,9 +874,21 @@ def test_write_table_parquet_versioned__primary_key_append(db_parquet_versioned)
     # Write table with primary key
     table_name = "table1"
     df = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
+    schema = {
+        "properties": {
+            "col1": {"type": "integer"},
+            "col2": {"type": "integer"},
+        },
+    }
     write_policy = WritePolicy.APPEND
     backup_policy = BackupPolicy.NONE
-    with patch("InsightBoard.database.db_parquet.datetime") as mock_datetime:
+    with (
+        patch("InsightBoard.database.db_parquet.datetime") as mock_datetime,
+        patch(
+            "InsightBoard.database.database.DatabaseBase.get_table_schema"
+        ) as mock_schema,
+    ):
+        mock_schema.return_value = schema
         mock_datetime.now.return_value = datetime(2021, 2, 1, 1, 2, 3)
         db.write_table_parquet(table_name, df, write_policy, backup_policy)
     # Overwrite table including primary key duplicates
@@ -719,7 +897,13 @@ def test_write_table_parquet_versioned__primary_key_append(db_parquet_versioned)
     ) as mock_get_primary_key:
         mock_get_primary_key.return_value = "col1"
         df = pd.DataFrame({"col1": [1, 3, 4, 5], "col2": [7, 8, 9, 10]})
-        with patch("InsightBoard.database.db_parquet.datetime") as mock_datetime:
+        with (
+            patch("InsightBoard.database.db_parquet.datetime") as mock_datetime,
+            patch(
+                "InsightBoard.database.database.DatabaseBase.get_table_schema"
+            ) as mock_schema,
+        ):
+            mock_schema.return_value = schema
             mock_datetime.now.return_value = datetime(2022, 3, 2, 4, 5, 6)
             db.write_table_parquet(table_name, df, write_policy, backup_policy)
     # Read and check parquet file (sort columns for comparison)

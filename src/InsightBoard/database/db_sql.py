@@ -14,6 +14,7 @@ from InsightBoard.database.db_base import (
 )
 
 
+# Abstract class for SQL databases
 class DatabaseSQL(DatabaseBase):
     def __init__(self, backend, data_folder: str = ""):
         super().__init__(backend, data_folder)

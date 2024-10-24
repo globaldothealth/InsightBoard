@@ -62,6 +62,6 @@ class DatabaseDuckDB(DatabaseSQL):
 
         # Check for nullability
         sql_type = base_type(json_types)
-        if "null" in json_types:
+        if self.field_is_nullable(props):
             sql_type = f"{sql_type} NULL"
         return sql_type

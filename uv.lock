@@ -360,7 +360,7 @@ wheels = [
 
 [[package]]
 name = "insightboard"
-version = "0.0.1.dev79+g5159a0a.d20241023"
+version = "0.0.1.dev83+gca1ea34.d20241024"
 source = { editable = "." }
 dependencies = [
     { name = "cachetools" },
@@ -369,13 +369,17 @@ dependencies = [
     { name = "dash-bootstrap-templates" },
     { name = "dash-dangerously-set-inner-html" },
     { name = "dash-table" },
-    { name = "duckdb" },
     { name = "jsonschema" },
     { name = "openpyxl" },
     { name = "pandas" },
     { name = "pyarrow" },
     { name = "tomli-w" },
     { name = "waitress" },
+]
+
+[package.optional-dependencies]
+duckdb = [
+    { name = "duckdb" },
 ]
 
 [package.dev-dependencies]
@@ -394,7 +398,7 @@ requires-dist = [
     { name = "dash-bootstrap-templates", specifier = ">=1.2.4" },
     { name = "dash-dangerously-set-inner-html", specifier = ">=0.0.2" },
     { name = "dash-table", specifier = ">=5.0.0" },
-    { name = "duckdb", specifier = ">=1.1.2" },
+    { name = "duckdb", marker = "extra == 'duckdb'", specifier = ">=1.1.2" },
     { name = "jsonschema", specifier = ">=4.23.0" },
     { name = "openpyxl", specifier = ">=3.1.5" },
     { name = "pandas", specifier = ">=2.2.3" },

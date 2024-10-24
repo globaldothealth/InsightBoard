@@ -108,6 +108,22 @@ class DatabaseBase(ABC):
             return {}
         return schema
 
+    def field_is_nullable(self, props: dict):
+        # Check if the 'properties' JSON specification allows the field to be nullable
+        json_type = props.get("type", [])
+        if not isinstance(json_type, list):
+            json_type = [json_type]
+        json_enum = props.get("enum", [])
+        if not isinstance(json_enum, list):
+            json_enum = [json_enum]
+        return (
+            props.get("nullable", False)
+            or (None in json_type)
+            or ('null' in json_type)
+            or (None in json_enum)
+            or ('null' in json_enum)
+        )
+
     @abstractmethod
     def db_metadata(self):
         pass  # pragma: no cover
