@@ -11,7 +11,7 @@ rm -rf build dist
 
 # Active the virtual environment (with all dependencies installed)
 uv sync
-uv pip install "adtl[parquet] @ git+https://github.com/globaldothealth/adtl"
+uv pip install "adtl[parquet]"
 uv pip install pyinstaller
 source .venv/bin/activate
 

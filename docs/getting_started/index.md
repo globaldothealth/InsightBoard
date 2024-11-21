@@ -11,7 +11,7 @@ pip install InsightBoard
 ````{note}
 You will also need to install `ADTL` (Another Data Transform Language) to make full use of the parsers, including those supplied with the `sample_project`:
 ```bash
-pip install "adtl[parquet] @ git+https://github.com/globaldothealth/adtl"
+pip install "adtl[parquet]"
 ```
 ````
 
