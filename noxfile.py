@@ -31,12 +31,7 @@ def system_tests(session):
         "sync",
         "--all-extras",
     )
-    session.run(
-        "uv",
-        "pip",
-        "install",
-        "adtl[parquet] @ git+https://github.com/globaldothealth/adtl",
-    )
+    session.run("uv", "pip", "install", "adtl[parquet]")
     session.run(
         "uv",
         "run",

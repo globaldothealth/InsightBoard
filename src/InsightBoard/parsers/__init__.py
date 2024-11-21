@@ -1,8 +1,9 @@
 import shutil
 import subprocess
-import pandas as pd
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+
+import pandas as pd
 
 try:
     import adtl as adtl_parser
@@ -14,7 +15,7 @@ def adtl_check_command():
     if shutil.which("adtl") is None:
         raise ImportError(
             "ADTL is not installed. Please install it using `pip install "
-            '"adtl[parquet] @ git+https://github.com/globaldothealth/adtl"`'
+            '"adtl[parquet]"`'
         )
 
 
@@ -22,7 +23,7 @@ def adtl_check_parser():
     if adtl_parser is None:
         raise ImportError(
             "ADTL is not installed. Please install it using `pip install "
-            '"adtl[parquet] @ git+https://github.com/globaldothealth/adtl"`'
+            '"adtl[parquet]"`'
         )
 
 
