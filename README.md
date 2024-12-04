@@ -15,11 +15,6 @@ First, ensure you have a compatible version of [Python 3](https://www.python.org
 pip3 install InsightBoard
 ```
 
-You will also want to install ADTL (Another Data Transform Language) to make full use of the parsers, including those supplied with the sample project:
-```bash
-pip3 install "adtl[parquet]"
-```
-
 To launch the dashboard, simply type `InsightBoard` from the command line. The dashboard should open in your default web browser (http://localhost:8050/). If the command is not found, you can also launch the dashboard by typing `python3 -m InsightBoard`.
 
 ### Upgrading

@@ -31,7 +31,6 @@ def system_tests(session):
         "sync",
         "--all-extras",
     )
-    session.run("uv", "pip", "install", "adtl[parquet]")
     session.run(
         "uv",
         "run",

@@ -8,13 +8,6 @@ InsightBoard is a Python application that runs through your web browser. You can
 pip install InsightBoard
 ```
 
-````{note}
-You will also need to install `ADTL` (Another Data Transform Language) to make full use of the parsers, including those supplied with the `sample_project`:
-```bash
-pip install "adtl[parquet]"
-```
-````
-
 Note that it is usually recommended to install into a virtual environment. We recommend using [uv](https://github.com/astral-sh/uv) to manage the virtual environment. To create and active a virtual environment for InsightBoard using `uv` run the following commands:
 
 ```bash
