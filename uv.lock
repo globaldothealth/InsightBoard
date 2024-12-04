@@ -113,15 +113,6 @@ wheels = [
 ]
 
 [[package]]
-name = "chromedriver-py"
-version = "129.0.6668.100"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/eb/96/44ade5c70ec4661d9ac0ef29d77eca8345100da9b77938b59860df1e0fd9/chromedriver_py-129.0.6668.100.tar.gz", hash = "sha256:e82e83d172968e603df59b6c024df097c8b2e69badb87c2128c8f1bc45883a12", size = 44138371 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/e3/2d/9c1498a0b0bd27f1c63de5c41a9003a7bec23c9002856f05cb04ba4caeb5/chromedriver_py-129.0.6668.100-py3-none-any.whl", hash = "sha256:f99388b81feabefaf0bc1a984bab630f66ea87c29ad3ca163461a78d57d3585d", size = 44234462 },
-]
-
-[[package]]
 name = "click"
 version = "8.1.7"
 source = { registry = "https://pypi.org/simple" }
@@ -375,7 +366,7 @@ wheels = [
 
 [[package]]
 name = "insightboard"
-version = "0.0.1.dev88+g82511a2.d20241028"
+version = "0.0.1.dev89+g40dbc6d.d20241204"
 source = { editable = "." }
 dependencies = [
     { name = "cachetools" },
@@ -399,7 +390,6 @@ duckdb = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "chromedriver-py" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "selenium" },
@@ -424,7 +414,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "chromedriver-py", specifier = ">=129.0.6668.89" },
     { name = "pytest", specifier = ">=8.3.3" },
     { name = "pytest-cov", specifier = ">=5.0.0" },
     { name = "selenium", specifier = ">=4.25.0" },

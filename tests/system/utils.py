@@ -12,12 +12,11 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from chromedriver_py import binary_path
 
 
 def chromedriver_present():
     try:
-        Service(binary_path)
+        Service()
     except Exception:
         return False
     return True
@@ -41,7 +40,7 @@ def timeout(driver, fcn):
 
 @pytest.fixture
 def driver():
-    service = Service(binary_path)
+    service = Service()
     options = webdriver.ChromeOptions()
     options.add_argument("--headless")
     options.add_argument("--window-size=1920,1080")
