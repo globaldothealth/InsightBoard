@@ -16,7 +16,7 @@ dependencies = [
     "waitress>=3.0.0",
     "cachetools>=5.5.0",
     "dash-bootstrap-templates>=1.2.4",
-    "adtl[parquet]>=0.6.1",
+    "adtl[autoparser]>=0.7.0",
 ]
 scripts = { InsightBoard = "InsightBoard:main" }
 dynamic = ["version"]
