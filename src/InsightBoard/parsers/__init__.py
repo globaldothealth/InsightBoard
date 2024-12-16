@@ -10,12 +10,14 @@ try:
 except ImportError:
     adtl_parser = None
 
+from .autoparser import autoparser, AutoParser
+
 
 def adtl_check_command():
     if shutil.which("adtl") is None:
         raise ImportError(
             "ADTL is not installed. Please install it using `pip install "
-            '"adtl[parquet]"`'
+            '"adtl[autoparser]"`'
         )
 
 
@@ -23,7 +25,15 @@ def adtl_check_parser():
     if adtl_parser is None:
         raise ImportError(
             "ADTL is not installed. Please install it using `pip install "
-            '"adtl[parquet]"`'
+            '"adtl[autoparser]"`'
+        )
+
+
+def adtl_check_autoparser():
+    if autoparser is None:
+        raise ImportError(
+            "autoparser is not installed. Please install it using `pip install "
+            '"adtl[autoparser]"`'
         )
 
 
@@ -80,3 +90,19 @@ def parse_adtl(df: pd.DataFrame, spec_file, table_names) -> list[dict]:
         }
         for table_name, df in zip(table_names, dfs)
     ]
+
+
+# want this?
+def autoparser_create_dict(
+    df: pd.DataFrame,
+    schema: str,
+    api_key: str,
+    llm: str,
+    llm_descriptions: bool,
+    language: str,
+) -> pd.DataFrame:
+    adtl_check_autoparser()
+
+    ap = AutoParser(llm, api_key, schema)
+    data_dict = ap.create_dict(df, language, llm_descriptions)
+    return data_dict
