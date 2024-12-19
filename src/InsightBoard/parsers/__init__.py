@@ -10,12 +10,14 @@ try:
 except ImportError:
     adtl_parser = None
 
+from .autoparser import autoparser, AutoParser
+
 
 def adtl_check_command():
     if shutil.which("adtl") is None:
         raise ImportError(
             "ADTL is not installed. Please install it using `pip install "
-            '"adtl[parquet]"`'
+            '"adtl[autoparser]"`'
         )
 
 
@@ -23,7 +25,15 @@ def adtl_check_parser():
     if adtl_parser is None:
         raise ImportError(
             "ADTL is not installed. Please install it using `pip install "
-            '"adtl[parquet]"`'
+            '"adtl[autoparser]"`'
+        )
+
+
+def adtl_check_autoparser():
+    if autoparser is None:
+        raise ImportError(
+            "autoparser is not installed. Please install it using `pip install "
+            '"adtl[autoparser]"`'
         )
 
 

@@ -169,3 +169,6 @@ build
 **/.DS_Store
 
 src/InsightBoard/version.py
+
+# vscode projects
+.vscode/

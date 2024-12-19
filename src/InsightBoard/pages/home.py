@@ -1,6 +1,6 @@
 import dash
-from dash import html
 import dash_bootstrap_components as dbc
+from dash import html
 
 # Register the page
 dash.register_page(__name__, path="/")
@@ -20,6 +20,7 @@ def layout():
             ),
             html.Div(
                 [
+                    dbc.Button("New Dataset", href="/new_parser", style=button_style),
                     dbc.Button("Upload", href="/upload", style=button_style),
                     dbc.Button("Data", href="/data", style=button_style),
                     dbc.Button("Reports", href="/reports", style=button_style),
