@@ -11,7 +11,6 @@ from InsightBoard.config import ConfigManager
 from InsightBoard.database import BackupPolicy
 from InsightBoard.database import Database
 from InsightBoard.database import DatabaseBackend
-from InsightBoard.parsers import autoparser_create_dict
 
 
 def get_projects_folder():
@@ -228,23 +227,3 @@ class Project:
         if not isinstance(parsed_df_list, list):
             parsed_df_list = [parsed_df_list]
         return parsed_df_list
-
-    def create_data_dict(
-        self, filename, contents, schema, key, llm, llm_descriptions, language
-    ):
-        content_type, content_string = contents.split(",")
-        decoded = base64.b64decode(content_string)
-        ext = filename.split(".")[-1].lower()
-        if ext == "csv":
-            raw_df = pd.read_csv(io.StringIO(decoded.decode("utf-8")))
-        elif ext == "xlsx":
-            raw_df = pd.read_excel(io.BytesIO(decoded))
-        else:
-            return "Unsupported file type.", None, [], "", ""
-
-        print("llm_desctiptions stored value", llm_descriptions)
-        df = autoparser_create_dict(
-            raw_df, schema, key, llm, llm_descriptions, language
-        )
-
-        return df

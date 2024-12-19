@@ -90,19 +90,3 @@ def parse_adtl(df: pd.DataFrame, spec_file, table_names) -> list[dict]:
         }
         for table_name, df in zip(table_names, dfs)
     ]
-
-
-# want this?
-def autoparser_create_dict(
-    df: pd.DataFrame,
-    schema: str,
-    api_key: str,
-    llm: str,
-    llm_descriptions: bool,
-    language: str,
-) -> pd.DataFrame:
-    adtl_check_autoparser()
-
-    ap = AutoParser(llm, api_key, schema)
-    data_dict = ap.create_dict(df, language, llm_descriptions)
-    return data_dict

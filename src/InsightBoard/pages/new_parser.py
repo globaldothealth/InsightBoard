@@ -30,6 +30,7 @@ _DELETE_FALSE = "✖"
 # Register the page
 dash.register_page(__name__, path="/new_parser")
 projectObj = None
+autoParser = None
 
 
 def layout():
@@ -72,7 +73,7 @@ def layout():
                             ),
                             # Choose LLM
                             dcc.RadioItems(
-                                ["openai", "google"], "openai", id="llm-choice"
+                                ["openai", "gemini"], "openai", id="llm-choice"
                             ),
                             # Set data language
                             dcc.RadioItems(["fr", "en"], "fr", id="data-language"),
@@ -210,7 +211,7 @@ def layout():
                 [
                     dbc.Button(
                         "Confirm & continue",
-                        id="confirm-dict-button",
+                        id="mapping-button",
                         n_clicks=0,
                         style={"marginRight": "5px"},
                     ),
@@ -358,7 +359,6 @@ def update_table(
     # errors,
 ):
     # Callback is triggered before edited_datasets is populated on first run
-    print("update table triggered")
     datasets = edited_datasets
     if not datasets:
         raise dash.exceptions.PreventUpdate
@@ -704,7 +704,7 @@ def ctx_trigger(ctx, event):
     Output("autoparser-file-settings", "style"),
     # Output("close-settings", "style"),
     Input("make-dict-button", "n_clicks"),  # Triggered by 'Parse' button click ...
-    # Input("update-button", "n_clicks"),  # ... or 'Update' button click
+    Input("mapping-button", "n_clicks"),  # ... or 'Update' button click
     State("project", "data"),
     State("ap-upload-data", "contents"),
     State("ap-upload-data", "filename"),
@@ -719,7 +719,7 @@ def ctx_trigger(ctx, event):
 )
 def parse_file_to_data_dict(
     parse_n_clicks,
-    # update_n_clicks,
+    map_n_clicks,
     project,
     contents,
     filename,
@@ -743,7 +743,7 @@ def parse_file_to_data_dict(
         )
     ctx = dash.callback_context
     trig_parse_btn = ctx_trigger(ctx, "make-dict-button.n_clicks")
-    # trig_update_btn = ctx_trigger(ctx, "update-button.n_clicks")
+    trig_mapping_btn = ctx_trigger(ctx, "mapping-button.n_clicks")
     # Parse the data (read from files)
     if trig_parse_btn:
         msg, data_dict, rtn = parse_data_to_dict(
@@ -774,6 +774,35 @@ def parse_file_to_data_dict(
                 {"display": "block"},
                 # {"display": "none"},
             )
+    if trig_mapping_btn:
+        msg, mapping, rtn = dict_to_mapping_file(
+            project,
+            edited_data_store,
+            filename,
+            schema,
+            api_key,
+            llm_choice,
+            language,
+        )
+        if mapping:
+            # Update the table dropdown
+            return (
+                msg,
+                mapping,
+                rtn,
+                {"display": "none"},
+                # {"display": "block"},
+            )
+        else:
+            # If there was an error, return the error message
+            return (
+                msg,
+                mapping,
+                rtn,
+                {"display": "block"},
+                # {"display": "none"},
+            )
+
     # # Update the data (make the current 'edited' buffer the new 'parsed' buffer)
     # if trig_update_btn:
     #     return (
@@ -807,10 +836,17 @@ def parse_data_to_dict(
     # Process the uploaded file
     try:
         projectObj = utils.get_project(project)
-        # schema name is <table>.schema
-        schema_file = projectObj.get_schema(schema.split(".")[0])
-        data_dict_frame = projectObj.create_data_dict(
-            filename, contents, schema_file, key, llm, llm_descriptions, language
+        # 'schema' is <table>.schema
+        table = schema.split(".")[0]
+        schema_file = projectObj.get_schema(table)
+        schema_path = projectObj.get_schemas_folder()
+
+        global autoParser
+        if autoParser is None:
+            autoParser = utils.get_autoparser(llm, key, schema_file, table, schema_path)
+
+        data_dict_frame = autoParser.create_dict(
+            filename, contents, llm_descriptions, language
         )
 
         # Dash cannot store DataFrames directly, so convert them to dictionaries
@@ -822,7 +858,8 @@ def parse_data_to_dict(
             row[_DELETE_COLUMN] = _DELETE_FALSE
 
         return (
-            f"Data dictionary for file '{filename}' created successfully.",
+            f"Data dictionary for file '{filename}' created successfully.\n"
+            "Please check this carefully, and once you are satisfied click 'Confirm & Continue'.",  # noqa
             data_dict,
             schema,
             # f"{project}-{schema['name']}",
@@ -832,6 +869,49 @@ def parse_data_to_dict(
         return (
             dbc.Alert(
                 f"There was an error processing the file: {str(e)}. ",
+                color="danger",
+            ),
+            None,
+            # [],
+            "",
+        )
+
+
+def dict_to_mapping_file(project, contents, filename, schema, key, llm, language):
+    """
+    Returns
+    message, dictionary, schema name, file name string
+    """
+
+    try:
+        dd = pd.DataFrame(contents)
+        dd.drop(columns=["Row", _DELETE_COLUMN], inplace=True)
+
+        mapping_frame = autoParser.create_mapping(dd, language)
+        mapping_frame.reset_index(inplace=True)
+
+        # Dash cannot store DataFrames directly, so convert them to dictionaries
+        mapping = mapping_frame.to_dict("records")
+
+        # Populate 'Row' and '_delete' columns
+        for i, row in enumerate(mapping):
+            row["Row"] = i + 1
+            row[_DELETE_COLUMN] = _DELETE_FALSE
+
+        return (
+            f"Mapping for file '{filename}' created successfully.\n"
+            "Please check this carefully, and once you are satisfied click 'Confirm & Continue'.",  # noqa
+            mapping,
+            schema,
+            # f"{project}-{schema['name']}",
+        )
+
+    # should try and catch the returned warnings about unmapped fields
+    # config toml and mapping_file.csv are also being written out for some reason
+    except Exception as e:
+        return (
+            dbc.Alert(
+                f"There was an error while mapping: {str(e)}. ",
                 color="danger",
             ),
             None,

@@ -1,17 +1,15 @@
+import importlib
 import json
 import logging
-import importlib
-import pandas as pd
-
 from pathlib import Path
-from jsonschema import Draft7Validator
 
+import pandas as pd
+from InsightBoard.parsers import AutoParser
 from InsightBoard.project import Project
-from InsightBoard.project.project import (  # expose downstream # noqa: F401
-    get_projects_list,
-    get_default_project,
-    get_custom_assets_folder,
-)
+from InsightBoard.project.project import get_custom_assets_folder
+from InsightBoard.project.project import get_default_project
+from InsightBoard.project.project import get_projects_list
+from jsonschema import Draft7Validator
 
 
 def get_project(name):
@@ -88,3 +86,7 @@ def check_module(module_name):
         return True
     except ImportError:
         return False
+
+
+def get_autoparser(model, api_key, schema, table, schema_path):
+    return AutoParser(model, api_key, schema, table, schema_path)

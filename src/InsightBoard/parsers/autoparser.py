@@ -1,3 +1,12 @@
+import base64
+import importlib.resources as resources
+import io
+from pathlib import Path
+
+import pandas as pd
+import tomli
+import tomli_w
+
 try:
     import adtl.autoparser as autoparser
 except ImportError:
@@ -5,13 +14,33 @@ except ImportError:
 
 
 class AutoParser:
-    def __init__(self, model=None, api_key=None, schema=None):
+    def __init__(
+        self, model=None, api_key=None, schema=None, table_name=None, schema_path=None
+    ):
         self.model = model
         self.api_key = api_key
 
         # find appropriate way to get the config file & schema
         self.schema = schema
-        self.config = None
+
+        if schema_path:
+            with resources.files("adtl.autoparser.config").joinpath(
+                "autoparser.toml"
+            ).open("rb") as fp:
+                config = tomli.load(fp)
+            schema_loc = Path(schema_path, table_name)
+            schema_loc = schema_loc.parent / (schema_loc.name + ".schema.json")
+            self.schema_path = schema_loc
+            config["schemas"] = {table_name: str(schema_loc)}
+
+            schema_path = Path(schema_path)
+            config_path = Path(schema_path, "autoparser.toml")
+            with open(str(config_path), "wb") as f:
+                tomli_w.dump(config, f)
+            self.config = config_path
+
+        else:
+            self.config = None
 
         # created attributes
         self.data_dict = None
@@ -33,13 +62,23 @@ class AutoParser:
             f"AutoParser is not ready, please set {', '.join(not_set)}",
         )
 
-    def create_dict(self, data, language, llm_descriptions):
+    def create_dict(self, filename, contents, llm_descriptions, language):
         ready, msg = self.is_autoparser_ready
         if not ready:
             return msg, None
 
+        content_type, content_string = contents.split(",")
+        decoded = base64.b64decode(content_string)
+        ext = filename.split(".")[-1].lower()
+        if ext == "csv":
+            raw_df = pd.read_csv(io.StringIO(decoded.decode("utf-8")))
+        elif ext == "xlsx":
+            raw_df = pd.read_excel(io.BytesIO(decoded))
+        else:
+            return "Unsupported file type.", None, [], "", ""
+
         # currently config doesn't make any difference
-        self.data_dict = autoparser.create_dict(data, config=self.config)
+        self.data_dict = autoparser.create_dict(raw_df, config=self.config)
 
         # this config won't be right
         if llm_descriptions:
@@ -53,19 +92,26 @@ class AutoParser:
 
         return self.data_dict
 
-    def create_mapping(self):
-        if not self.data_dict:
-            return "No data dictionary provided", None
+    def create_mapping(self, data_dict, language):
+        descriptions = data_dict["source_description"]
+        if descriptions.empty:
+            return (
+                "The data dictionary is missing the field descriptions required for mapping.",
+                None,
+                [],
+                "",
+                "",
+            )
 
         self.mapping = autoparser.create_mapping(
-            self.data_dict,
-            self.schema,
+            data_dict,
+            self.schema_path,
+            language,
             self.api_key,
             llm=self.model,
             config=self.config,
         )
-
-        return "Sucess", self.mapping
+        return self.mapping
 
     def create_parser(self):
         if not self.mapping:
