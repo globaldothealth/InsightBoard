@@ -114,7 +114,11 @@ def layout():
                         multiple=False,  # Only allow one file to be uploaded
                     ),
                     # Parse Button to start file parsing
-                    dbc.Button("Create Dictionary", id="make-dict-button", n_clicks=0),
+                    dbc.Button(
+                        "Create Dictionary",
+                        id="make-dict-button",
+                        n_clicks=0,
+                    ),
                 ],
                 id="autoparser-file-settings",
                 style={"display": "block"},
@@ -206,7 +210,7 @@ def layout():
             ),
             # Buttons for row operations (on the next line)
             html.Div(id="data-dict-stats"),
-            # html.Div(id="commit-output"),
+            html.Div(id="parser-output"),
             html.Div(
                 [
                     dbc.Button(
@@ -223,20 +227,20 @@ def layout():
                         style={"margin": "5px"},
                     ),
                     dcc.Download(id="download-dict-csv"),
-                    # # Commit Button moved to the right-hand side
-                    # dbc.Button(
-                    #     "Commit to Database",
-                    #     id="commit-button",
-                    #     n_clicks=0,
-                    #     style={
-                    #         "float": "right",
-                    #         "margin": "10px",
-                    #         "verticalAlign": "middle",
-                    #     },
-                    # ),
+                    # Commit Button moved to the right-hand side
+                    dbc.Button(
+                        "Generate Parser",
+                        id="make-parser-button",
+                        n_clicks=0,
+                        style={
+                            "float": "right",
+                            "margin": "10px",
+                            "verticalAlign": "middle",
+                        },
+                    ),
                 ]
             ),
-            #         dcc.ConfirmDialog(id="confirm-commit-dialog", message=""),
+            dcc.ConfirmDialog(id="confirm-parser-dialog", message=""),
             html.Hr(),
             #         html.Div(id="output-container"),
         ],
@@ -1110,53 +1114,61 @@ def dict_to_mapping_file(project, contents, filename, schema, key, llm, language
 #         return dcc.send_data_frame(df.to_csv, filename, index=False)
 
 
-# # Display a confirmation dialog when the commit button is clicked
-# @callback(
-#     Output("confirm-commit-dialog", "displayed"),  # Show the dialog
-#     Output("confirm-commit-dialog", "message"),
-#     Input("commit-button", "n_clicks"),  # Triggered by 'Commit' button click
-#     State("imported-tables-dropdown", "options"),
-# )
-# def display_confirm_dialog(n_clicks, table_names):
-#     if n_clicks > 0:
-#         return True, (
-#             "You are able to write data to the following tables:\n"
-#             f"{', '.join([t for t in table_names])}\n\nCommit data now?"
-#         )
-#     return False, ""
+# Display a confirmation dialog when the 'generate parser' button is clicked
+@callback(
+    Output("confirm-parser-dialog", "displayed"),  # Show the dialog
+    Output("confirm-parser-dialog", "message"),
+    Input("make-parser-button", "n_clicks"),  # Triggered by 'Commit' button click
+    # State("imported-tables-dropdown", "options"),
+)
+def display_parser_dialog(n_clicks):  # , table_names
+    if n_clicks > 0:
+        return True, (
+            "You are able to write a parser for the following data file:\n"
+            # f"{', '.join([t for t in table_names])}\n\nWrite parser now?"
+        )
+    return False, ""
 
 
-# # Commit changes to the database
-# @callback(
-#     Output("commit-output", "children"),  # Update the commit output message ...
-#     Input("confirm-commit-dialog", "submit_n_clicks"),  # Triggered by 'Confirm' dialog
-#     State("project", "data"),
-#     State("imported-tables-dropdown", "options"),
-#     State("edited-data-store", "data"),
-#     State("update-existing-records", "value"),
-# )
-# def commit_to_database(
+# Write a new parser
+@callback(
+    Output("parser-output", "children"),  # Update the commit output message ...
+    Input("confirm-parser-dialog", "submit_n_clicks"),  # Triggered by 'Confirm' dialog
+    State("project", "data"),
+    # State("imported-tables-dropdown", "options"),
+    State("edited-dict-store", "data"),
+    # State("update-existing-records", "value"),
+)
+# def write_a_parser(
 #     submit_n_clicks, project, table_names, datasets, update_existing_records
 # ):
-#     if submit_n_clicks and project and table_names and datasets:
-#         try:
-#             projectObj.database.set_write_policy(
-#                 WritePolicy.UPSERT if update_existing_records else WritePolicy.APPEND
-#             )
-#             # Remove _delete rows and ['Row', '_delete'] columns before committing
-#             for i, table in enumerate(datasets):
-#                 datasets[i] = [
-#                     row for row in table if row[_DELETE_COLUMN] == _DELETE_FALSE
-#                 ]
-#                 datasets[i] = [
-#                     {k: v for k, v in row.items() if k not in ["Row", _DELETE_COLUMN]}
-#                     for row in datasets[i]
-#                 ]
-#             projectObj.database.commit_tables_dict(table_names, datasets)
-#             return dbc.Alert("Data committed to database.", color="success")
-#         except Exception as e:
-#             logging.error(f"Error committing data to database: {str(e)}")
-#             logging.error(traceback.format_exc())
-#             return dbc.Alert(f"Error committing data to file: {str(e)}", color="danger")
+def write_a_parser(submit_n_clicks, project, datasets):
+    if submit_n_clicks and project and datasets:
+        try:
+            parser_folder = projectObj.get_parsers_folder()
 
-#     return "No data committed yet."
+            mapping = pd.DataFrame(datasets)
+            mapping.drop(columns=["Row", _DELETE_COLUMN], inplace=True)
+            # mapping.set_index("target_field", inplace=True)
+
+            autoParser.create_parser(mapping, parser_folder)
+            # projectObj.database.set_write_policy(
+            #     WritePolicy.UPSERT if update_existing_records else WritePolicy.APPEND
+            # )
+            # # Remove _delete rows and ['Row', '_delete'] columns before committing
+            # for i, table in enumerate(datasets):
+            #     datasets[i] = [
+            #         row for row in table if row[_DELETE_COLUMN] == _DELETE_FALSE
+            #     ]
+            #     datasets[i] = [
+            #         {k: v for k, v in row.items() if k not in ["Row", _DELETE_COLUMN]}
+            #         for row in datasets[i]
+            #     ]
+            # projectObj.database.commit_tables_dict(table_names, datasets)
+            return dbc.Alert("Parser generated.", color="success")
+        except Exception as e:
+            logging.error(f"Error writing the parser: {str(e)}")
+            logging.error(traceback.format_exc())
+            return dbc.Alert(f"Error writing the parser: {str(e)}", color="danger")
+
+    return "No parser written yet."

@@ -113,12 +113,12 @@ class AutoParser:
         )
         return self.mapping
 
-    def create_parser(self):
-        if not self.mapping:
-            return "No mapping file", None
-
+    def create_parser(self, mapping, parser_loc):
         autoparser.create_parser(
-            self.mapping, self.schema, "file path for parser", config=self.config
+            mapping,
+            self.schema_path.parent,
+            str(Path(parser_loc, "adtl", "new_parser.toml")),
+            config=self.config,
         )
 
-        return "Parser saved to <file path>", True
+        return True
