@@ -15,7 +15,6 @@ from dash import html
 from dash import Input
 from dash import Output
 from dash import State
-from InsightBoard.database import WritePolicy
 
 # DataTable supports a maximum of 512 conditional formatting rules,
 #  so stop adding rules after this limit is reached
@@ -227,18 +226,34 @@ def layout():
                         style={"margin": "5px"},
                     ),
                     dcc.Download(id="download-dict-csv"),
-                    # Commit Button moved to the right-hand side
-                    dbc.Button(
-                        "Generate Parser",
-                        id="make-parser-button",
-                        n_clicks=0,
+                    html.Div(
+                        [
+                            dcc.Input(
+                                id="parser-name",
+                                type="text",
+                                placeholder="Parser Name",
+                                style={"marginRight": "5px"},
+                            ),
+                            dbc.Button(
+                                "Generate Parser",
+                                id="make-parser-button",
+                                n_clicks=0,
+                            ),
+                        ],
                         style={
-                            "float": "right",
-                            "margin": "10px",
-                            "verticalAlign": "middle",
+                            "marginLeft": "auto",
+                            "display": "flex",
+                            "flexDirection": "row",
+                            "alignItems": "flex-end",  # Align items to the right
+                            "justifyContent": "flex-end",  # Right-align the whole div
                         },
                     ),
-                ]
+                ],
+                style={
+                    "display": "flex",
+                    "flexDirection": "row",
+                    "alignItems": "center",  # Vertically align items
+                },
             ),
             dcc.ConfirmDialog(id="confirm-parser-dialog", message=""),
             html.Hr(),
@@ -436,128 +451,6 @@ def update_table(
 
     # return columns, hidden_columns, data, active_cell, data_stats
     return columns, data, active_cell, data_stats
-
-
-# # Utility function to remove quotes from strings
-# def remove_quotes(x):
-#     if isinstance(x, str) and x.startswith('"') and x.endswith('"'):
-#         return x[1:-1]
-#     if isinstance(x, str) and x.startswith("'") and x.endswith("'"):
-#         return x[1:-1]
-#     return x
-
-
-# # Utility function to clean data values, coercing to target type if specified
-# def clean_value(x, key_name=None, dtypes={}):
-#     """Clean a value, coercing to target type if specified.
-
-#     The DataTable accepts mainly strings, so this function attempts to
-#     coerce the value to the target type specified in the schema. If the value
-#     cannot be coerced, it is returned as a string.
-
-#     Params:
-#         x (str): The value to clean.
-#         key_name (str): The key name of the value in the dataset.
-#         dtypes (dict): A dictionary of key names and target types.
-#                (list): A list of target types.
-#                "any": Any type is allowed.
-#     """
-
-#     # Target type can be not specified if, e.g. enum or 'Row' column
-#     if isinstance(dtypes, str) and dtypes == "any":
-#         target_types = [
-#             "string",
-#             "number",
-#             "integer",
-#             "boolean",
-#             "array",
-#             "object",
-#             "null",
-#         ]
-#     elif isinstance(dtypes, dict):
-#         target_types = dtypes.get(key_name, {}).get("type", None)
-#         if not isinstance(target_types, list):
-#             target_types = [target_types]
-#     elif isinstance(dtypes, list):
-#         target_types = dtypes
-#     else:
-#         target_types = []
-
-#     # String pre-processing
-#     if isinstance(x, str):
-#         x = x.strip()
-
-#     if "array" in target_types and isinstance(x, str):
-#         if x.startswith("[") and x.endswith("]"):
-#             return list(
-#                 map(
-#                     remove_quotes,
-#                     map(lambda x: clean_value(x, None, "any"), x[1:-1].split(",")),
-#                 )
-#             )
-#         elif isinstance(x, str) and "," in x:
-#             return list(
-#                 map(
-#                     remove_quotes,
-#                     map(lambda x: clean_value(x, None, "any"), x.split(",")),
-#                 )
-#             )
-
-#     if "number" in target_types:
-#         if isinstance(x, int) or isinstance(x, float):
-#             return x
-#         elif isinstance(x, str):
-#             try:
-#                 if "." in x:
-#                     n = float(x)
-#                     if math.isnan(n):
-#                         return None
-#                 else:
-#                     n = int(x)
-#                 return n
-#             except Exception:
-#                 pass
-
-#     if "integer" in target_types:
-#         if isinstance(x, int):
-#             return x
-#         elif isinstance(x, str):
-#             try:
-#                 return int(x)  # int cannot be nan
-#             except Exception:
-#                 pass
-
-#     if "boolean" in target_types:
-#         if isinstance(x, bool):
-#             return x
-#         elif isinstance(x, str):
-#             try:
-#                 if x.lower() in ["true", "false"]:
-#                     return x.lower() == "true"
-#             except Exception:
-#                 pass
-
-#     if "object" in target_types:
-#         # Object is a valid json schema type, but not supported by DataTable
-#         ...
-
-#     if "null" in target_types and not x:
-#         return None
-
-#     # Return the original value if no coercion can be applied
-#     return x
-
-
-# # Utility function to clean a dataset
-# def clean_dataset(dataset, project, selected_table, lists_to_strings=True):
-#     projectObj = utils.get_project(project)
-#     schema = projectObj.database.get_table_schema(selected_table)
-#     for row in dataset:
-#         for k, v in row.items():
-#             row[k] = clean_value(v, k, schema["properties"])
-#             if lists_to_strings and isinstance(row[k], list):
-#                 row[k] = "[" + ", ".join([x for x in row[k] if x]) + "]"
-#     return dataset
 
 
 # When edits are made in the DataTable, update the edited-data-store
@@ -1119,13 +1012,14 @@ def dict_to_mapping_file(project, contents, filename, schema, key, llm, language
     Output("confirm-parser-dialog", "displayed"),  # Show the dialog
     Output("confirm-parser-dialog", "message"),
     Input("make-parser-button", "n_clicks"),  # Triggered by 'Commit' button click
-    # State("imported-tables-dropdown", "options"),
+    State("ap-upload-data", "filename"),
+    State("schema-dropdown", "value"),
 )
-def display_parser_dialog(n_clicks):  # , table_names
+def display_parser_dialog(n_clicks, data_file_name, schema_name):  # , table_names
     if n_clicks > 0:
         return True, (
-            "You are able to write a parser for the following data file:\n"
-            # f"{', '.join([t for t in table_names])}\n\nWrite parser now?"
+            "You are about to write a parser for the following data file and schema:\n"
+            f"Data: {data_file_name}\nSchema: {schema_name}\n\nWrite parser now?"
         )
     return False, ""
 
@@ -1134,15 +1028,13 @@ def display_parser_dialog(n_clicks):  # , table_names
 @callback(
     Output("parser-output", "children"),  # Update the commit output message ...
     Input("confirm-parser-dialog", "submit_n_clicks"),  # Triggered by 'Confirm' dialog
+    State("parser-name", "value"),  # Parser name
     State("project", "data"),
     # State("imported-tables-dropdown", "options"),
     State("edited-dict-store", "data"),
     # State("update-existing-records", "value"),
 )
-# def write_a_parser(
-#     submit_n_clicks, project, table_names, datasets, update_existing_records
-# ):
-def write_a_parser(submit_n_clicks, project, datasets):
+def write_a_parser(submit_n_clicks, parser_name, project, datasets):
     if submit_n_clicks and project and datasets:
         try:
             parser_folder = projectObj.get_parsers_folder()
@@ -1151,20 +1043,25 @@ def write_a_parser(submit_n_clicks, project, datasets):
             mapping.drop(columns=["Row", _DELETE_COLUMN], inplace=True)
             # mapping.set_index("target_field", inplace=True)
 
-            autoParser.create_parser(mapping, parser_folder)
-            # projectObj.database.set_write_policy(
-            #     WritePolicy.UPSERT if update_existing_records else WritePolicy.APPEND
-            # )
-            # # Remove _delete rows and ['Row', '_delete'] columns before committing
-            # for i, table in enumerate(datasets):
-            #     datasets[i] = [
-            #         row for row in table if row[_DELETE_COLUMN] == _DELETE_FALSE
-            #     ]
-            #     datasets[i] = [
-            #         {k: v for k, v in row.items() if k not in ["Row", _DELETE_COLUMN]}
-            #         for row in datasets[i]
-            #     ]
-            # projectObj.database.commit_tables_dict(table_names, datasets)
+            autoParser.create_parser(mapping, parser_folder, name=parser_name)
+
+            # make asociated python file
+            content = f"""import pandas as pd
+from pathlib import Path
+from InsightBoard.parsers import parse_adtl
+
+SPECIFICATION_FILE = "adtl/{parser_name}.toml"
+
+def parse(df: pd.DataFrame) -> list[dict]:
+    spec_file = Path(__file__).parent / SPECIFICATION_FILE
+    return parse_adtl(df, spec_file, ["linelist"])
+"""
+
+            file = Path(parser_folder, f"adtl-{parser_name}.py")
+            # Create parent directories if they don't exist
+            file.parent.mkdir(parents=True, exist_ok=True)
+            file.write_text(content)
+
             return dbc.Alert("Parser generated.", color="success")
         except Exception as e:
             logging.error(f"Error writing the parser: {str(e)}")

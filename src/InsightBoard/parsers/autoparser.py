@@ -110,14 +110,15 @@ class AutoParser:
             self.api_key,
             llm=self.model,
             config=self.config,
+            save=False,
         )
         return self.mapping
 
-    def create_parser(self, mapping, parser_loc):
+    def create_parser(self, mapping, parser_loc, name):
         autoparser.create_parser(
             mapping,
             self.schema_path.parent,
-            str(Path(parser_loc, "adtl", "new_parser.toml")),
+            str(Path(parser_loc, "adtl", f"{name}.toml")),
             config=self.config,
         )
 

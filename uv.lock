@@ -8,7 +8,7 @@ resolution-markers = [
 
 [[package]]
 name = "adtl"
-version = "0.7.0"
+version = "0.7.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "fastjsonschema" },
@@ -20,9 +20,9 @@ dependencies = [
     { name = "tomli" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/cc/50/42eed5155ff5d64c2e951b66c481fc4e4fbcce9f500e1eb9851037b7992a/adtl-0.7.0.tar.gz", hash = "sha256:cb4026b73a152c3ffe9aa4155660d2af16ae3764510b7acc4272d02acd578afb", size = 36068 }
+sdist = { url = "https://files.pythonhosted.org/packages/f6/b9/592e6bd49e1ec03f957162a8ffd8727cd4e36bdcce13d8c5cca02afc7d6e/adtl-0.7.1.tar.gz", hash = "sha256:ca0bcdbc48d50e6cc0b5020c54d701d482979a010fa70d18d4af14c5a42c5a9e", size = 36235 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4c/2c/8d560826e596c934607b82693a10738177bf5ef961137afcc12081acadd9/adtl-0.7.0-py3-none-any.whl", hash = "sha256:de874dc7ecb822eeece910144900a50714054a3ece099e13ad7ebf6f3fd84e54", size = 41170 },
+    { url = "https://files.pythonhosted.org/packages/d5/39/12556a28f7877fbcc946c7463638c2925cf20db05743f55e9def1a42efcc/adtl-0.7.1-py3-none-any.whl", hash = "sha256:3f514ebbb9b324dbe7615d31db967a8e81d06bfecfd0b94809718880a1e1773b", size = 41273 },
 ]
 
 [package.optional-dependencies]

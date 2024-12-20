@@ -12,6 +12,8 @@ except ImportError:
 
 from .autoparser import autoparser, AutoParser
 
+__all__ = ["AutoParser"]
+
 
 def adtl_check_command():
     if shutil.which("adtl") is None:
@@ -29,6 +31,7 @@ def adtl_check_parser():
         )
 
 
+# currently unused... should add that in somewhere.
 def adtl_check_autoparser():
     if autoparser is None:
         raise ImportError(
