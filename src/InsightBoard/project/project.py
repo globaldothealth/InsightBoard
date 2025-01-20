@@ -193,6 +193,8 @@ class Project:
             for s in Path(self.get_schemas_folder()).iterdir()
             if s.is_file() and s.suffix == ".json"
         ]
+        # drop the schema used to validate the parser files (not for data)
+        schemas = [s for s in schemas if not s.name == "parser.schema.json"]
         return [{"label": s.stem, "value": s.stem} for s in schemas]
 
     def get_datasets(self, datasets):

@@ -51,6 +51,54 @@ def layout():
             html.Div(id="autoparser-upload-data"),
             html.Div(
                 [
+                    dbc.Col(
+                        [
+                            # Choose LLM
+                            html.H6(
+                                children="""
+        Choose which LLM to use for generating your parser, and provide a corresponding API key:
+    """  # noqa
+                            ),
+                            dcc.RadioItems(
+                                options=[
+                                    {"label": "gpt-4o-mini", "value": "openai"},
+                                    {"label": "gemini-1.5-flash", "value": "gemini"},
+                                ],
+                                value="openai",
+                                id="llm-choice",
+                                style={"marginTop": "10px", "marginBottom": "10px"},
+                            ),
+                            # API key input
+                            dcc.Input(
+                                id="api-key",
+                                type="password",
+                                placeholder="API Key",
+                                value=None,
+                                style={"marginTop": "5px", "marginBottom": "10px"},
+                            ),
+                            # Set data language
+                            html.H6(
+                                children="""
+        Select which language your data is in:
+    """
+                            ),
+                            dcc.RadioItems(
+                                options=[
+                                    {"label": "English", "value": "en"},
+                                    {"label": "French", "value": "fr"},
+                                ],
+                                value="fr",
+                                id="data-language",
+                                style={"marginTop": "10px", "marginBottom": "10px"},
+                            ),
+                        ],
+                        width=6,
+                    ),
+                    html.Div(
+                        children="""
+        Please select a schema, and the data file you want to create a parser for.
+    """
+                    ),
                     # Schema dropdown list (context-dependent on dataset)
                     dbc.Col(
                         dcc.Dropdown(
@@ -60,37 +108,6 @@ def layout():
                             style={"width": "100%"},
                         ),
                         width=6,
-                    ),
-                    dbc.Col(
-                        [
-                            # API key input
-                            dcc.Input(
-                                id="api-key",
-                                type="password",
-                                placeholder="API Key",
-                                value=None,
-                            ),
-                            # Choose LLM
-                            dcc.RadioItems(
-                                ["openai", "gemini"], "openai", id="llm-choice"
-                            ),
-                            # Set data language
-                            dcc.RadioItems(["fr", "en"], "fr", id="data-language"),
-                        ],
-                        width=6,
-                    ),
-                    # autoparser settings
-                    dbc.Checklist(
-                        id="autoparser-settings",
-                        options=[
-                            {"label": "Generate descriptions with LLM", "value": 1},
-                            # {"label": "Show full validation log", "value": 2},
-                            # {"label": "Update existing records", "value": 3},
-                        ],
-                        value=[1],  # list of 'value's that are 'on' by default
-                        inline=True,
-                        switch=True,
-                        style={"margin": "10px"},
                     ),
                     # Upload drop-space
                     dcc.Upload(
@@ -111,6 +128,19 @@ def layout():
                             "marginBottom": "10px",
                         },
                         multiple=False,  # Only allow one file to be uploaded
+                    ),
+                    # autoparser settings
+                    dbc.Checklist(
+                        id="autoparser-settings",
+                        options=[
+                            {"label": "Generate descriptions with LLM", "value": 1},
+                            # {"label": "Show full validation log", "value": 2},
+                            # {"label": "Update existing records", "value": 3},
+                        ],
+                        value=[1],  # list of 'value's that are 'on' by default
+                        inline=True,
+                        switch=True,
+                        style={"margin": "10px"},
                     ),
                     # Parse Button to start file parsing
                     dbc.Button(
@@ -632,7 +662,7 @@ def parse_file_to_data_dict(
     # if not parse_n_clicks and not update_n_clicks:
     if not parse_n_clicks:
         return (
-            "Please select a schema and file to parse.",
+            "",
             None,
             [],
             {"display": "block"},
@@ -724,7 +754,10 @@ def parse_data_to_dict(
 
     if not contents or not schema:
         return (
-            "Please select a schema, and file to use.",
+            dbc.Alert(
+                "Please select both a schema, and a data file to use.",
+                color="warning",
+            ),
             None,
             # [],
             "",
@@ -797,7 +830,7 @@ def dict_to_mapping_file(project, contents, filename, schema, key, llm, language
 
         return (
             f"Mapping for file '{filename}' created successfully.\n"
-            "Please check this carefully, and once you are satisfied click 'Confirm & Continue'.",  # noqa
+            "Please check this carefully, and once you are satisfied define the parser name and click 'Generate Parser'.",  # noqa
             mapping,
             schema,
             # f"{project}-{schema['name']}",
