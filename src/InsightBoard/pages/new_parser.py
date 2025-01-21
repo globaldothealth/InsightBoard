@@ -20,12 +20,6 @@ from dash import State
 #  so stop adding rules after this limit is reached
 MAX_CONDITIONAL_FORMATTING = 512
 
-# Due to formatting constraints we store the _delete column (which doubles as a button)
-# as a string
-_DELETE_COLUMN = "_delete"
-_DELETE_TRUE = "↺"
-_DELETE_FALSE = "✖"
-
 # Register the page
 dash.register_page(__name__, path="/new_parser")
 projectObj = None
@@ -38,17 +32,17 @@ def layout():
             # Store
             dcc.Store(id="project"),  # project selection
             dcc.Store(id="parser-id"),  # unique id (project-table)
-            dcc.Store(id="data-dict-store"),  # parsed data dict (multi-table support)
-            dcc.Store(id="edited-dict-store"),  # edited data dict (multi-table support)
-            dcc.Store(
-                id="generate-descriptions-with-llm"
-            ),  # Setting: use LLm to generate descriptions
+            dcc.Store(id="ap-output-store"),  # autoparser output
+            dcc.Store(id="edited-ap-output-store"),  # edited data dict
+            dcc.Store(id="generate-descriptions-with-llm"),  # Setting: LLm descriptions
             # dcc.Store(id="show-full-validation-log"),  # Setting: Show full log
             # dcc.Store(id="update-existing-records"),  # Setting: Update records
+            dcc.Store(id="unmapped-fields"),
+            dcc.Store(id="edited-unmapped-fields", data=[]),
             # Page rendering
             html.H1("Create a new parser"),
             # dcc.Location(id="url-refresh", refresh=True),
-            html.Div(id="autoparser-upload-data"),
+            html.Div(id="autoparser-messages"),
             html.Div(
                 [
                     dbc.Col(
@@ -172,7 +166,7 @@ def layout():
                 type="default",
                 children=[
                     dash_table.DataTable(
-                        id="editable-data-dict",
+                        id="editable-ap-table",
                         columns=[],
                         data=[],
                         editable=True,
@@ -192,17 +186,11 @@ def layout():
                             "min-height": "300px",
                             "overflowY": "auto",
                         },
-                        # Freeze 'delete' and 'Row' columns
+                        # Freeze 'Row' and first data (either field name or target_field) columns # noqa
                         fixed_columns={
                             "headers": True,
                             "data": 2,
                         },
-                        style_header_conditional=[
-                            {
-                                "if": {"column_id": _DELETE_COLUMN},
-                                "color": "transparent",
-                            },
-                        ],
                     ),
                 ],
                 style={
@@ -347,7 +335,7 @@ def update_filename(filename, style):
     ),  # Update 'only show errors' setting
     Input("autoparser-settings", "value"),  # Triggered by settings switch changes
 )
-def update_only_show_errors(value):
+def update_llm_descriptions(value):
     return 1 in value
 
 
@@ -362,50 +350,33 @@ def update_only_show_errors(value):
 
 # Update page size of the DataTable based on dropdown selection
 @callback(
-    Output("editable-data-dict", "page_size"),  # Update the DataTable page size
+    Output("editable-ap-table", "page_size"),  # Update the DataTable page size
     Input("fields-dropdown", "value"),  # Triggered by 'rows per page' dropdown
 )
 def update_page_size(page_size):
     return page_size
 
 
-# When a table name is selected from the dropdown, update the DataTable display
+# triggered when the active cell changes?
 @callback(
-    Output("editable-data-dict", "columns"),  # Update DataTable
-    # Output("editable-data-dict", "hidden_columns"),
-    Output("editable-data-dict", "data"),
-    Output("editable-data-dict", "active_cell"),
+    Output("editable-ap-table", "columns"),  # Update DataTable
+    Output("editable-ap-table", "data"),
+    Output("editable-ap-table", "active_cell"),
     Output("data-dict-stats", "children"),
-    # Input("imported-tables-dropdown", "options"),  # Triggered by 'table' selection ...
-    # Input("imported-tables-dropdown", "value"),
     Input("parser-id", "data"),
     Input("generate-descriptions-with-llm", "value"),
-    # Input("update-existing-records", "value"),
-    # Input("remove-empty-ids-button", "n_clicks"),
-    # Input("remove-error-rows-button", "n_clicks"),
-    # Input("restore-deleted-rows-button", "n_clicks"),
-    Input("editable-data-dict", "active_cell"),
+    Input("editable-ap-table", "active_cell"),
     State("project", "data"),
-    # State("edited-dict-store", "data"),  # Populate with table from edited-data store
-    State("data-dict-store", "data"),  # Populate with table from edited-data store
-    # State("parsed-data-store", "data"),
-    # State("validation-errors", "data"),
+    # PL: the non-edited store is used here, and is the one that works.
+    # But think it possibly should be the non-edited one.
+    State("ap-output-store", "data"),  # Populate with table from edited-data store
 )
 def update_table(
-    # options,
-    # selected_table,
     parser_id,
-    # only_show_validation_errors,
-    # update_existing_records,
-    # remove_empty_ids_n_clicks,
-    # remove_error_rows_n_clicks,
-    # restore_deleted_rows_n_clicks,
     llm_descriptions,
     active_cell,
     project,
     edited_datasets,
-    # parsed_datasets,
-    # errors,
 ):
     # Callback is triggered before edited_datasets is populated on first run
     datasets = edited_datasets
@@ -413,22 +384,17 @@ def update_table(
         raise dash.exceptions.PreventUpdate
 
     ctx = dash.callback_context
-    trig_active_cell = ctx_trigger(ctx, "editable-data-dict.active_cell")
+    trig_active_cell = ctx_trigger(ctx, "editable-ap-table.active_cell")
     # trig_remove_empty_ids = ctx_trigger(ctx, "remove-empty-ids-button.n_clicks")
     # trig_remove_error_rows = ctx_trigger(ctx, "remove-error-rows-button.n_clicks")
     # trig_restore_deleted_rows = ctx_trigger(ctx, "restore-deleted-rows-button.n_clicks")
 
     # The only active cell we want to respond to is the delete button
-    if (
-        trig_active_cell
-        and active_cell
-        and not active_cell.get("column_id") == _DELETE_COLUMN
-    ):
+    if trig_active_cell and active_cell:
         raise dash.exceptions.PreventUpdate
 
     data = datasets
 
-    # data = datasets[options.index(selected_table)]
     data_stats = f"Total fields: {len(data)}"
     # projectObj = utils.get_project(project)
     # primary_key = projectObj.database.get_primary_key(selected_table)
@@ -439,39 +405,10 @@ def update_table(
     columns = [{"name": col, "id": col, "editable": True} for col in keys]
     # columns = utils.ensure_schema_ordering(columns, project, selected_table)
 
-    # # Respond to delete button clicks
-    # if active_cell and active_cell.get("column_id") == _DELETE_COLUMN:
-    #     i = active_cell.get("row")
-    #     row = data[i]
-    #     active_cell = False  # Permits the button to be clicked again straight away
-    #     row[_DELETE_COLUMN] = (
-    #         _DELETE_FALSE
-    #         if row.get(_DELETE_COLUMN, _DELETE_FALSE) == _DELETE_TRUE
-    #         else _DELETE_TRUE
-    #     )
-
-    # # Mark rows with errors for deletion
-    # if trig_remove_error_rows:
-    #     for row in data:
-    #         i = row["Row"] - 1
-    #         if any(errors[i]):
-    #             row[_DELETE_COLUMN] = _DELETE_TRUE
-
-    # # Restore deleted rows
-    # if trig_restore_deleted_rows:
-    #     for row in data:
-    #         row[_DELETE_COLUMN] = _DELETE_FALSE
-
-    # # Check how many visible rows are marked for deletion
-    # deleted_rows = len(
-    #     [row for row in data if row.get(_DELETE_COLUMN, _DELETE_FALSE) == _DELETE_TRUE]
-    # )
-
-    # Move columns '_delete' and 'Row' to the front
+    # Move 'Row' column to the front
     columns = [
-        {"name": _DELETE_COLUMN, "id": _DELETE_COLUMN, "editable": False},
         {"name": "Row", "id": "Row", "editable": False},
-        *[col for col in columns if col["id"] not in [_DELETE_COLUMN, "Row"]],
+        *[col for col in columns if col["id"] not in ["Row"]],
     ]
 
     # hidden_columns = []
@@ -483,20 +420,26 @@ def update_table(
     return columns, data, active_cell, data_stats
 
 
-# When edits are made in the DataTable, update the edited-data-store
+# When edits are made in the DataTable, update the edited-data-store & missing fields
+# triggered by changing the page, but not by editing the table
 @callback(
-    Output("edited-dict-store", "data"),  # Update the edited data store
-    Input("data-dict-store", "data"),  # Triggered by new 'parsed data' ...
-    Input("editable-data-dict", "data"),  # ... or DataTable edits
+    Output("edited-ap-output-store", "data"),  # Update the edited data store
+    Output("edited-unmapped-fields", "data"),  # Update the missing fields store
+    Input("ap-output-store", "data"),  # Triggered by new autoparser data ...
+    Input("editable-ap-table", "data"),  # ... or DataTable edits
     State("project", "data"),
-    # State("imported-tables-dropdown", "options"),
-    # State("imported-tables-dropdown", "value"),
-    State("edited-dict-store", "data"),
+    State("edited-ap-output-store", "data"),  # PL: still right?
+    State("unmapped-fields", "data"),
+    State("edited-unmapped-fields", "data"),
 )
-# def update_edited_data(
-#     parsed_data, edited_table_data, project, tables, selected_table, datasets
-# ):
-def update_edited_data(parsed_data, edited_table_data, project, datasets):
+def update_edited_data(
+    parsed_data,
+    edited_table_data,
+    project,
+    datasets,
+    unmapped_fields,
+    edited_unmapped_fields,
+):
     new_edited_data_store = parsed_data
     if not new_edited_data_store:
         raise dash.exceptions.PreventUpdate
@@ -508,7 +451,18 @@ def update_edited_data(parsed_data, edited_table_data, project, datasets):
         if row_idx:
             full_edited_data[row_idx - 1] = row
 
-    return full_edited_data
+    if unmapped_fields or edited_unmapped_fields:
+        # Check for missing fields that have been added in by user
+
+        missing_fields = edited_unmapped_fields or unmapped_fields
+        for i, row in enumerate(full_edited_data):
+            idx = row["Row"] - 1
+            if row["source_field"] is not None and missing_fields[idx] is not None:
+                missing_fields[idx] = []
+    else:
+        missing_fields = []
+
+    return full_edited_data, missing_fields
 
 
 # # Utility function to convert text to HTML for display
@@ -623,26 +577,22 @@ def ctx_trigger(ctx, event):
 
 # Parse the select data file when "Parse" button is pressed
 @callback(
-    Output("autoparser-upload-data", "children"),  # Update parsed data store and ...
-    Output("data-dict-store", "data"),  # ... GUI elements
-    # Output("imported-tables-dropdown", "options"),
-    # Output("imported-tables-dropdown", "value"),
+    Output("autoparser-messages", "children"),  # Output message
+    Output("ap-output-store", "data"),  # Update autoparser data store,
+    Output("unmapped-fields", "data"),  # unmapped fields, and ...
     Output("parser-id", "data"),
-    Output("autoparser-file-settings", "style"),
-    # Output("close-settings", "style"),
-    Input("make-dict-button", "n_clicks"),  # Triggered by 'Parse' button click ...
-    Input("mapping-button", "n_clicks"),  # ... or 'Update' button click
+    Output("autoparser-file-settings", "style"),  # ... GUI elements
+    Input("make-dict-button", "n_clicks"),  # Triggered by 'Create Dict' button click ..
+    Input("mapping-button", "n_clicks"),  # ... or 'Confirm & Continue' button click
     State("project", "data"),
     State("ap-upload-data", "contents"),
     State("ap-upload-data", "filename"),
     State("schema-dropdown", "value"),
-    State("edited-dict-store", "data"),
+    State("edited-ap-output-store", "data"),
     State("api-key", "value"),
     State("llm-choice", "value"),
     State("generate-descriptions-with-llm", "value"),
     State("data-language", "value"),
-    # State("imported-tables-dropdown", "options"),
-    # State("imported-tables-dropdown", "value"),
 )
 def parse_file_to_data_dict(
     parse_n_clicks,
@@ -656,8 +606,6 @@ def parse_file_to_data_dict(
     llm_choice,
     llm_descriptions,
     language,
-    # tables_list,
-    # selected_table,
 ):
     # if not parse_n_clicks and not update_n_clicks:
     if not parse_n_clicks:
@@ -665,13 +613,14 @@ def parse_file_to_data_dict(
             "",
             None,
             [],
+            [],
             {"display": "block"},
             # {"display": "none"},
         )
     ctx = dash.callback_context
     trig_parse_btn = ctx_trigger(ctx, "make-dict-button.n_clicks")
     trig_mapping_btn = ctx_trigger(ctx, "mapping-button.n_clicks")
-    # Parse the data (read from files)
+    # Generate a data dictionary
     if trig_parse_btn:
         msg, data_dict, rtn = parse_data_to_dict(
             project,
@@ -688,6 +637,7 @@ def parse_file_to_data_dict(
             return (
                 msg,
                 data_dict,
+                [],
                 rtn,
                 {"display": "none"},
                 # {"display": "block"},
@@ -697,12 +647,14 @@ def parse_file_to_data_dict(
             return (
                 msg,
                 data_dict,
+                [],
                 rtn,
                 {"display": "block"},
                 # {"display": "none"},
             )
+    # Generate a mapping file
     if trig_mapping_btn:
-        msg, mapping, rtn = dict_to_mapping_file(
+        msg, mapping, errors, rtn = dict_to_mapping_file(
             project,
             edited_data_store,
             filename,
@@ -716,6 +668,7 @@ def parse_file_to_data_dict(
             return (
                 msg,
                 mapping,
+                errors,
                 rtn,
                 {"display": "none"},
                 # {"display": "block"},
@@ -725,6 +678,7 @@ def parse_file_to_data_dict(
             return (
                 msg,
                 mapping,
+                [],
                 rtn,
                 {"display": "block"},
                 # {"display": "none"},
@@ -771,9 +725,20 @@ def parse_data_to_dict(
         schema_file = projectObj.get_schema(table)
         schema_path = projectObj.get_schemas_folder()
 
+        # it's probaly this; once the 'autoparser' global class is created,
+        # even if the llm or api key is changed it will still be the same object.
         global autoParser
         if autoParser is None:
             autoParser = utils.get_autoparser(llm, key, schema_file, table, schema_path)
+
+        ready, msg = autoParser.is_autoparser_ready
+        if not ready:
+            return (
+                dbc.Alert(msg, color="warning"),
+                None,
+                # [],
+                "",
+            )
 
         data_dict_frame = autoParser.create_dict(
             filename, contents, llm_descriptions, language
@@ -785,7 +750,6 @@ def parse_data_to_dict(
         # Populate 'Row' and '_delete' columns
         for i, row in enumerate(data_dict):
             row["Row"] = i + 1
-            row[_DELETE_COLUMN] = _DELETE_FALSE
 
         return (
             f"Data dictionary for file '{filename}' created successfully.\n"
@@ -815,9 +779,9 @@ def dict_to_mapping_file(project, contents, filename, schema, key, llm, language
 
     try:
         dd = pd.DataFrame(contents)
-        dd.drop(columns=["Row", _DELETE_COLUMN], inplace=True)
+        dd.drop(columns=["Row"], inplace=True)
 
-        mapping_frame = autoParser.create_mapping(dd, language)
+        mapping_frame, missing_fields = autoParser.create_mapping(dd, language)
         mapping_frame.reset_index(inplace=True)
 
         # Dash cannot store DataFrames directly, so convert them to dictionaries
@@ -826,199 +790,172 @@ def dict_to_mapping_file(project, contents, filename, schema, key, llm, language
         # Populate 'Row' and '_delete' columns
         for i, row in enumerate(mapping):
             row["Row"] = i + 1
-            row[_DELETE_COLUMN] = _DELETE_FALSE
 
         return (
             f"Mapping for file '{filename}' created successfully.\n"
             "Please check this carefully, and once you are satisfied define the parser name and click 'Generate Parser'.",  # noqa
             mapping,
+            missing_fields,
             schema,
             # f"{project}-{schema['name']}",
         )
 
-    # should try and catch the returned warnings about unmapped fields
-    # config toml and mapping_file.csv are also being written out for some reason
     except Exception as e:
         return (
             dbc.Alert(
-                f"There was an error while mapping: {str(e)}. ",
+                f"There was an error while mapping: {e}. ",
                 color="danger",
             ),
             None,
+            [],
             # [],
             "",
         )
 
 
-# # Apply table highlights and tooltips to show changes
-# def highlight_and_tooltip_changes(
-#     original_data,
-#     data,
-#     page_current,
-#     page_size,
-#     validation_errors,
-#     only_show_validation_errors,
-# ):
-#     """Compare the original and edited data, highlight changes, and show tooltips."""
-#     if not page_size:
-#         return [], []
-#     page_current = page_current or 0
+# Apply table highlights and tooltips to show changes
+def highlight_and_tooltip_changes(
+    original_data,
+    data,
+    page_current,
+    page_size,
+    missing_fields,
+):
+    """Highlight missing fields and show tooltips."""
+    if not page_size:
+        return [], []
+    page_current = page_current or 0
 
-#     paginate = not only_show_validation_errors
-#     start_idx = page_current * page_size if paginate else 0
-#     end_idx = (page_current + 1) * page_size if paginate else len(data)
+    start_idx = page_current * page_size
+    end_idx = (page_current + 1) * page_size
 
-#     # Default higlights
-#     style_data_conditional = [
-#         {  # Highlight the selected cell
-#             "if": {"state": "active"},
-#             "backgroundColor": "lightblue",
-#             "border": "1px solid blue",
-#             "color": "black",
-#         },
-#         {  # Mark the 'Row' column in light grey
-#             "if": {"column_id": "Row"},
-#             "backgroundColor": "#F0F0F0",
-#             "color": "#A0A0A0",
-#         },
-#     ]
-#     tooltip_data = [{} for _ in range(start_idx)]
-#     keys = next(iter(data)).keys()
-#     data_cols = [k for k in keys if k not in ["Row", _DELETE_COLUMN]]
+    # Default higlights
+    style_data_conditional = [
+        {  # Highlight the selected cell
+            "if": {"state": "active"},
+            "backgroundColor": "lightblue",
+            "border": "1px solid blue",
+            "color": "black",
+        },
+        {  # Mark the 'Row' column in light grey
+            "if": {"column_id": "Row"},
+            "backgroundColor": "#F0F0F0",
+            "color": "#A0A0A0",
+        },
+    ]
+    tooltip_data = [{} for _ in range(start_idx)]
+    keys = next(iter(data)).keys()
+    data_cols = [k for k in keys if k not in ["Row"]]
 
-#     deleted_rows = []
-#     error_rows = []
+    error_rows = []
 
-#     # Iterate over each row in the modified data
-#     try:
-#         # Ensure rows with errors are highlighted before placing cell-level highlights
-#         for i, row in enumerate(data[start_idx:end_idx]):
-#             idx = row["Row"] - 1
-#             errors = validation_errors[idx]
-#             # Check for deleted rows
-#             if row[_DELETE_COLUMN] == _DELETE_TRUE:
-#                 deleted_rows.append(idx + 1)
-#             # Check for validation errors and highlight row
-#             if any(errors) and row[_DELETE_COLUMN] == _DELETE_FALSE:
-#                 error_rows.append(idx + 1)
-#         if deleted_rows:
-#             style_data_conditional.append(
-#                 {
-#                     "if": {
-#                         "filter_query": " || ".join(
-#                             [f"{{Row}} = {k}" for k in deleted_rows]
-#                         ),
-#                     },
-#                     "backgroundColor": "#CCCCCC",
-#                     "color": "#A0A0A0",
-#                 }
-#             )
-#         if error_rows:
-#             style_data_conditional.append(
-#                 {
-#                     "if": {
-#                         "filter_query": " || ".join(
-#                             [f"{{Row}} = {k}" for k in error_rows]
-#                         ),
-#                     },
-#                     "backgroundColor": "#FFCCCC",
-#                     "color": "black",
-#                 }
-#             )
+    # Iterate over each row in the modified data
+    try:
+        # Ensure rows with errors are highlighted before placing cell-level highlights
+        for i, row in enumerate(data[start_idx:end_idx]):
+            idx = row["Row"] - 1
+            errors = missing_fields[idx]
+            if any(errors):
+                error_rows.append(idx + 1)
+        if error_rows:
+            style_data_conditional.append(
+                {
+                    "if": {
+                        "filter_query": " || ".join(
+                            [f"{{Row}} = {k}" for k in error_rows]
+                        ),
+                    },
+                    "backgroundColor": "#FFCCCC",
+                    "color": "black",
+                }
+            )
 
-#         for i, row in enumerate(data[start_idx:end_idx]):
-#             row_tooltip = {}  # Store tooltips for the row
-#             idx = row["Row"] - 1
-#             errors = validation_errors[idx]
-#             # Show validation errors per cell and show tooltip
-#             for error in errors:
-#                 if error["path"] in data_cols:
-#                     if len(style_data_conditional) <= MAX_CONDITIONAL_FORMATTING:
-#                         style_data_conditional.append(
-#                             {
-#                                 "if": {
-#                                     "filter_query": f"{{Row}} = {idx + 1}",
-#                                     "column_id": error["path"],
-#                                 },
-#                                 "border": "2px solid red",
-#                             }
-#                         )
-#                     row_tooltip[error["path"]] = {
-#                         "value": error["message"],
-#                         "type": "text",
-#                     }
-#             else:
-#                 # Then, if the cell values differ, highlight and add a tooltip
-#                 for column in data_cols:
-#                     original_value = original_data[idx].get(column, None)
-#                     modified_value = row.get(column, None)
-#                     if str(modified_value) != str(original_value):
-#                         if len(style_data_conditional) <= MAX_CONDITIONAL_FORMATTING:
-#                             style_data_conditional.append(
-#                                 {
-#                                     "if": {
-#                                         "filter_query": f"{{Row}} = {idx + 1}",
-#                                         "column_id": column,
-#                                     },
-#                                     "backgroundColor": "#FFDDC1",
-#                                     "color": "black",
-#                                 }
-#                             )
-#                         # Show original content as a tooltip
-#                         row_tooltip[column] = {
-#                             "value": f'Original: "{original_value}"',
-#                             "type": "text",
-#                         }
-#             tooltip_data.append(row_tooltip)
+        for i, row in enumerate(data[start_idx:end_idx]):
+            row_tooltip = {}  # Store tooltips for the row
+            idx = row["Row"] - 1
+            errors = missing_fields[idx]
+            # Show validation errors per cell and show tooltip
+            for error in errors:
+                if error["path"] in data_cols:
+                    if len(style_data_conditional) <= MAX_CONDITIONAL_FORMATTING:
+                        style_data_conditional.append(
+                            {
+                                "if": {
+                                    "filter_query": f"{{Row}} = {idx + 1}",
+                                    "column_id": error["path"],
+                                },
+                                "border": "2px solid red",
+                            }
+                        )
+                    row_tooltip[error["path"]] = {
+                        "value": error["message"],
+                        "type": "text",
+                    }
+            else:
+                # Then, if the cell values differ, highlight and add a tooltip
+                for column in data_cols:
+                    original_value = original_data[idx].get(column, None)
+                    modified_value = row.get(column, None)
+                    if str(modified_value) != str(original_value):
+                        if len(style_data_conditional) <= MAX_CONDITIONAL_FORMATTING:
+                            style_data_conditional.append(
+                                {
+                                    "if": {
+                                        "filter_query": f"{{Row}} = {idx + 1}",
+                                        "column_id": column,
+                                    },
+                                    "backgroundColor": "#FFDDC1",
+                                    "color": "black",
+                                }
+                            )
+                        # Show original content as a tooltip
+                        row_tooltip[column] = {
+                            "value": f'Original: "{original_value}"',
+                            "type": "text",
+                        }
+            tooltip_data.append(row_tooltip)
 
-#     except Exception as e:
-#         # Callback can sometimes be called on stale data causing key errors
-#         logging.error(f"Error in highlight_and_tooltip_changes: {str(e)}")
-#         return [], []
+    except Exception as e:
+        # Callback can sometimes be called on stale data causing key errors
+        logging.error(f"Error in highlight_and_tooltip_changes: {str(e)}")
+        logging.error(f"missing fields: {missing_fields}")
+        return [], []
 
-#     return style_data_conditional, tooltip_data
+    return style_data_conditional, tooltip_data
 
 
-# # Update the table style and tooltips based on validation errors
-# @callback(
-#     Output("editable-table", "style_data_conditional"),  # Update the table style ...
-#     Output("editable-table", "tooltip_data"),  # ... and tooltips
-#     Input("editable-table", "data"),  # Triggered by any change in the table data ...
-#     Input("editable-table", "page_current"),
-#     Input("editable-table", "page_size"),
-#     Input("validation-errors", "data"),  # ... or validation errors
-#     Input("only-show-validation-errors", "value"),
-#     State("parsed-data-store", "data"),
-#     State("imported-tables-dropdown", "options"),
-#     State("imported-tables-dropdown", "value"),
-# )
-# def update_table_style_and_validate(
-#     data,
-#     page_current,
-#     page_size,
-#     validation_errors,
-#     only_show_validation_errors,
-#     original_data,
-#     tables,
-#     selected_table,
-# ):
-#     if not data:
-#         return [], []
+# Update the table style and tooltips based on missing fields
+@callback(
+    Output("editable-ap-table", "style_data_conditional"),  # Update the table style ...
+    Output("editable-ap-table", "tooltip_data"),  # ... and tooltips
+    Input("editable-ap-table", "data"),  # Triggered by any change in the table data ...
+    Input("editable-ap-table", "page_current"),
+    Input("editable-ap-table", "page_size"),
+    State("ap-output-store", "data"),
+    State("unmapped-fields", "data"),
+    State("edited-unmapped-fields", "data"),
+)
+def update_table_style_and_validate(
+    data,
+    page_current,
+    page_size,
+    original_data,
+    missing_fields,
+    edited_missing_fields,
+):
+    if not data:
+        return [], []
 
-#     # Convert original data from dict to DataFrame
-#     original_df = original_data[tables.index(selected_table)]
+    # Highlight changes and create tooltips showing original data
+    style_data_conditional, tooltip_data = highlight_and_tooltip_changes(
+        original_data,
+        data,
+        page_current,
+        page_size,
+        edited_missing_fields or missing_fields,
+    )
 
-#     # Highlight changes and create tooltips showing original data
-#     style_data_conditional, tooltip_data = highlight_and_tooltip_changes(
-#         original_df,
-#         data,
-#         page_current,
-#         page_size,
-#         validation_errors,
-#         only_show_validation_errors,
-#     )
-
-#     return style_data_conditional, tooltip_data
+    return style_data_conditional, tooltip_data
 
 
 # # Downloading DataTable as CSV
@@ -1032,8 +969,6 @@ def dict_to_mapping_file(project, contents, filename, schema, key, llm, language
 # def download_csv(n_clicks, data, table_name):
 #     if n_clicks > 0 and data:
 #         df = pd.DataFrame(data)
-#         df = df[df[_DELETE_COLUMN] == _DELETE_FALSE]
-#         df.drop(columns=["Row", _DELETE_COLUMN], inplace=True)
 #         now = datetime.now()
 #         datetime_str = now.strftime("%Y-%m-%d_%H-%M-%S")
 #         filename = f"import_{table_name}_{datetime_str}.csv"
@@ -1063,9 +998,7 @@ def display_parser_dialog(n_clicks, data_file_name, schema_name):  # , table_nam
     Input("confirm-parser-dialog", "submit_n_clicks"),  # Triggered by 'Confirm' dialog
     State("parser-name", "value"),  # Parser name
     State("project", "data"),
-    # State("imported-tables-dropdown", "options"),
-    State("edited-dict-store", "data"),
-    # State("update-existing-records", "value"),
+    State("edited-ap-output-store", "data"),
 )
 def write_a_parser(submit_n_clicks, parser_name, project, datasets):
     if submit_n_clicks and project and datasets:
@@ -1073,8 +1006,7 @@ def write_a_parser(submit_n_clicks, parser_name, project, datasets):
             parser_folder = projectObj.get_parsers_folder()
 
             mapping = pd.DataFrame(datasets)
-            mapping.drop(columns=["Row", _DELETE_COLUMN], inplace=True)
-            # mapping.set_index("target_field", inplace=True)
+            mapping.drop(columns=["Row"], inplace=True)
 
             autoParser.create_parser(mapping, parser_folder, name=parser_name)
 
@@ -1102,3 +1034,14 @@ def parse(df: pd.DataFrame) -> list[dict]:
             return dbc.Alert(f"Error writing the parser: {str(e)}", color="danger")
 
     return "No parser written yet."
+
+
+# TODO:
+# * Use arcmapper style of 'containers' to allow the bottom section/buttons to
+# change with the stage of transformation we're in
+# * enable the 'download as csv' buttons
+# * get the data store to refresh if the user edits the llm/language/api key stuff after
+#  an error is thrown
+
+# *on autoparser side: throw recognisable error if a source_field is not found in the
+# data (prob typed incorrectly by the user)

@@ -6,6 +6,9 @@ from pathlib import Path
 import pandas as pd
 import tomli
 import tomli_w
+import warnings
+import re
+from ast import literal_eval
 
 try:
     import adtl.autoparser as autoparser
@@ -24,9 +27,11 @@ class AutoParser:
         self.schema = schema
 
         if schema_path:
-            with resources.files("adtl.autoparser.config").joinpath(
-                "autoparser.toml"
-            ).open("rb") as fp:
+            with (
+                resources.files("adtl.autoparser.config")
+                .joinpath("autoparser.toml")
+                .open("rb") as fp
+            ):
                 config = tomli.load(fp)
             schema_loc = Path(schema_path, table_name)
             schema_loc = schema_loc.parent / (schema_loc.name + ".schema.json")
@@ -63,9 +68,9 @@ class AutoParser:
         )
 
     def create_dict(self, filename, contents, llm_descriptions, language):
-        ready, msg = self.is_autoparser_ready
-        if not ready:
-            return msg, None
+        # ready, msg = self.is_autoparser_ready
+        # if not ready:
+        #     return msg
 
         content_type, content_string = contents.split(",")
         decoded = base64.b64decode(content_string)
@@ -94,25 +99,56 @@ class AutoParser:
 
     def create_mapping(self, data_dict, language):
         descriptions = data_dict["source_description"]
+        # PL: this will create an error at the moment, too many return values
         if descriptions.empty:
             return (
-                "The data dictionary is missing the field descriptions required for mapping.",
-                None,
+                "The data dictionary is missing field descriptions which are required for mapping.",  # noqa
+                [],
                 [],
                 "",
                 "",
             )
 
-        self.mapping = autoparser.create_mapping(
-            data_dict,
-            self.schema_path,
-            language,
-            self.api_key,
-            llm=self.model,
-            config=self.config,
-            save=False,
-        )
-        return self.mapping
+        with warnings.catch_warnings(record=True) as w:
+            self.mapping = autoparser.create_mapping(
+                data_dict,
+                self.schema_path,
+                language,
+                self.api_key,
+                llm=self.model,
+                config=self.config,
+                save=False,
+            )
+            if w:
+                for warning in w:
+                    # Match the warning message to your expected pattern
+                    match = re.search(
+                        r"The following schema fields have not been mapped: (\[.*\])",
+                        str(warning.message),
+                    )
+                    if match:
+                        # Extract the list from the matched group
+                        unmapped_fields = literal_eval(
+                            match.group(1)
+                        )  # Safely evaluate the list
+                        break
+
+                errors = []
+                for i, row in self.mapping.iterrows():
+                    if i not in unmapped_fields:
+                        errors.append([])
+                    else:
+                        errors.append(
+                            [
+                                {
+                                    "path": "source_field",
+                                    "message": f"{i} has not been mapped",
+                                }
+                            ]
+                        )
+
+                return self.mapping, errors
+        return self.mapping, []
 
     def create_parser(self, mapping, parser_loc, name):
         autoparser.create_parser(
