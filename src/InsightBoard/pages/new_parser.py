@@ -339,6 +339,18 @@ def update_llm_descriptions(value):
     return 1 in value
 
 
+@callback(Input("llm-choice", "value"))
+def update_llm_choice(value):
+    if autoParser is not None:
+        autoParser.model = value
+
+
+@callback(Input("api-key", "value"))
+def update_api_key(value):
+    if autoParser is not None:
+        autoParser.api_key = value
+
+
 # # Update state when settings are changed: Update Existing Records
 # @callback(
 #     Output("update-existing-records", "value"),  # Update the 'update records' setting
@@ -671,7 +683,6 @@ def parse_file_to_data_dict(
                 errors,
                 rtn,
                 {"display": "none"},
-                # {"display": "block"},
             )
         else:
             # If there was an error, return the error message
@@ -680,8 +691,7 @@ def parse_file_to_data_dict(
                 mapping,
                 [],
                 rtn,
-                {"display": "block"},
-                # {"display": "none"},
+                {"display": "none"},
             )
 
     # # Update the data (make the current 'edited' buffer the new 'parsed' buffer)
@@ -1040,8 +1050,7 @@ def parse(df: pd.DataFrame) -> list[dict]:
 # * Use arcmapper style of 'containers' to allow the bottom section/buttons to
 # change with the stage of transformation we're in
 # * enable the 'download as csv' buttons
-# * get the data store to refresh if the user edits the llm/language/api key stuff after
-#  an error is thrown
+# * get the 'loading' icon going
 
 # *on autoparser side: throw recognisable error if a source_field is not found in the
 # data (prob typed incorrectly by the user)

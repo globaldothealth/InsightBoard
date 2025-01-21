@@ -68,9 +68,6 @@ class AutoParser:
         )
 
     def create_dict(self, filename, contents, llm_descriptions, language):
-        # ready, msg = self.is_autoparser_ready
-        # if not ready:
-        #     return msg
 
         content_type, content_string = contents.split(",")
         decoded = base64.b64decode(content_string)
@@ -85,7 +82,7 @@ class AutoParser:
         # currently config doesn't make any difference
         self.data_dict = autoparser.create_dict(raw_df, config=self.config)
 
-        # this config won't be right
+        # this config won't be right?
         if llm_descriptions:
             self.data_dict = autoparser.generate_descriptions(
                 self.data_dict,
@@ -98,15 +95,13 @@ class AutoParser:
         return self.data_dict
 
     def create_mapping(self, data_dict, language):
+        # PL: 'Description' if no LLM used, 'source_description' if not... need to fix
+        # inside adtl.autoparser
         descriptions = data_dict["source_description"]
-        # PL: this will create an error at the moment, too many return values
-        if descriptions.empty:
-            return (
-                "The data dictionary is missing field descriptions which are required for mapping.",  # noqa
-                [],
-                [],
-                "",
-                "",
+        if any(descriptions.isnull()):
+            raise ValueError(
+                "The data dictionary is missing one or more field descriptions which "
+                "are required for mapping"
             )
 
         with warnings.catch_warnings(record=True) as w:
