@@ -24,6 +24,63 @@ dash.register_page(__name__, path="/new_parser")
 projectObj = None
 autoParser = None
 
+bottom_buttons_data_dict = [
+    dbc.Button(
+        "Confirm & continue",
+        id="mapping-button",
+        n_clicks=None,  # 0
+        style={"marginRight": "5px"},
+    ),
+    # Buttons for downloading CSV and committing changes
+    dbc.Button(
+        "Download as CSV",
+        id="download-dict-button",
+        n_clicks=0,
+        style={"margin": "5px"},
+    ),
+    dcc.Download(id="download-dict-csv"),
+]
+
+bottom_buttons_mapping = [
+    dbc.Button(
+        "Confirm & continue",
+        id="disabled-mapping-button",
+        n_clicks=None,  # 0
+        style={"marginRight": "5px"},
+        disabled=True,
+    ),
+    # Buttons for downloading CSV and committing changes
+    dbc.Button(
+        "Download as CSV",
+        id="download-mapping-button",
+        n_clicks=0,
+        style={"margin": "5px"},
+    ),
+    dcc.Download(id="download-mapping-csv"),
+    html.Div(
+        [
+            dcc.Input(
+                id="parser-name",
+                type="text",
+                placeholder="Parser Name",
+                style={"marginRight": "5px"},
+            ),
+            dbc.Button(
+                "Generate Parser",
+                id="make-parser-button",
+                n_clicks=0,
+            ),
+        ],
+        style={
+            "marginLeft": "auto",
+            "display": "flex",
+            "flexDirection": "row",
+            "alignItems": "flex-end",  # Align items to the right
+            "justifyContent": "flex-end",  # Right-align the whole div
+        },
+    ),
+]
+
 
 def layout():
     return html.Div(
@@ -208,44 +265,7 @@ def layout():
             html.Div(id="data-dict-stats"),
             html.Div(id="parser-output"),
             html.Div(
-                [
-                    dbc.Button(
-                        "Confirm & continue",
-                        id="mapping-button",
-                        n_clicks=0,
-                        style={"marginRight": "5px"},
-                    ),
-                    # Buttons for downloading CSV and committing changes
-                    dbc.Button(
-                        "Download as CSV",
-                        id="download-dict-button",
-                        n_clicks=0,
-                        style={"margin": "5px"},
-                    ),
-                    dcc.Download(id="download-dict-csv"),
-                    html.Div(
-                        [
-                            dcc.Input(
-                                id="parser-name",
-                                type="text",
-                                placeholder="Parser Name",
-                                style={"marginRight": "5px"},
-                            ),
-                            dbc.Button(
-                                "Generate Parser",
-                                id="make-parser-button",
-                                n_clicks=0,
-                            ),
-                        ],
-                        style={
-                            "marginLeft": "auto",
-                            "display": "flex",
-                            "flexDirection": "row",
-                            "alignItems": "flex-end",  # Align items to the right
-                            "justifyContent": "flex-end",  # Right-align the whole div
-                        },
-                    ),
-                ],
+                id="ap-bottom-controls",
                 style={
                     "display": "flex",
                     "flexDirection": "row",
@@ -531,13 +551,16 @@ def ctx_trigger(ctx, event):
 
 # Parse the select data file when "Parse" button is pressed
 @callback(
-    Output("autoparser-messages", "children"),  # Output message
-    Output("ap-output-store", "data"),  # Update autoparser data store,
-    Output("unmapped-fields", "data"),  # unmapped fields, and ...
-    Output("parser-id", "data"),
-    Output("autoparser-file-settings", "style"),  # ... GUI elements
+    Output("autoparser-messages", "children", allow_duplicate=True),  # Output message
+    Output(
+        "ap-output-store", "data", allow_duplicate=True
+    ),  # Update autoparser data store,
+    Output("parser-id", "data", allow_duplicate=True),
+    Output(
+        "autoparser-file-settings", "style", allow_duplicate=True
+    ),  # ... GUI elements
+    Output("ap-bottom-controls", "children", allow_duplicate=True),  # ... GUI elements
     Input("make-dict-button", "n_clicks"),  # Triggered by 'Create Dict' button click ..
-    Input("mapping-button", "n_clicks"),  # ... or 'Confirm & Continue' button click
     State("project", "data"),
     State("ap-upload-data", "contents"),
     State("ap-upload-data", "filename"),
@@ -558,21 +581,11 @@ def ctx_trigger(ctx, event):
             True,
             False,
         ),
-        (
-            Output("mapping-button", "children"),
-            [dbc.Spinner(size="sm"), " Mapping dictionary to schema..."],
-            "Confirm and Continue",
-        ),
-        (
-            Output("mapping-button", "disabled"),
-            True,
-            False,
-        ),
     ],
+    prevent_initial_call=True,
 )
 def parse_file_to_data_dict(
     parse_n_clicks,
-    map_n_clicks,
     project,
     contents,
     filename,
@@ -589,13 +602,11 @@ def parse_file_to_data_dict(
             "",
             None,
             [],
-            [],
             {"display": "block"},
-            # {"display": "none"},
+            [],
         )
     ctx = dash.callback_context
     trig_parse_btn = ctx_trigger(ctx, "make-dict-button.n_clicks")
-    trig_mapping_btn = ctx_trigger(ctx, "mapping-button.n_clicks")
     # Generate a data dictionary
     if trig_parse_btn:
         msg, data_dict, rtn = parse_data_to_dict(
@@ -613,21 +624,65 @@ def parse_file_to_data_dict(
             return (
                 msg,
                 data_dict,
-                [],
                 rtn,
                 {"display": "none"},
-                # {"display": "block"},
+                bottom_buttons_data_dict,
             )
         else:
             # If there was an error, return the error message
             return (
                 msg,
                 data_dict,
-                [],
                 rtn,
                 {"display": "block"},
-                # {"display": "none"},
+                [],
             )
+
+
+# Parse the select data file when "Parse" button is pressed
+@callback(
+    Output("autoparser-messages", "children", allow_duplicate=True),  # Output message
+    Output(
+        "ap-output-store", "data", allow_duplicate=True
+    ),  # Update autoparser data store,
+    Output("unmapped-fields", "data"),  # unmapped fields, and ...
+    Output("parser-id", "data", allow_duplicate=True),
+    Output(
+        "autoparser-file-settings", "style", allow_duplicate=True
+    ),  # ... GUI elements
+    Output("ap-bottom-controls", "children", allow_duplicate=True),  # ... GUI elements
+    Input("mapping-button", "n_clicks"),  # ... or 'Confirm & Continue' button click
+    State("ap-upload-data", "filename"),
+    State("schema-dropdown", "value"),
+    State("edited-ap-output-store", "data"),
+    State("data-language", "value"),
+    running=[
+        (
+            Output("mapping-button", "children"),
+            [dbc.Spinner(size="sm"), " Mapping dictionary to schema..."],
+            "Confirm and Continue",
+        ),
+        (
+            Output("mapping-button", "disabled"),
+            True,
+            False,
+        ),
+    ],
+    prevent_initial_call=True,
+)
+def map_data_dict_to_schema(
+    map_n_clicks,
+    filename,
+    schema,
+    edited_data_store,
+    language,
+):
+    if not map_n_clicks:
+        raise dash.exceptions.PreventUpdate
+
+    ctx = dash.callback_context
+    trig_mapping_btn = ctx_trigger(ctx, "mapping-button.n_clicks")
+
     # Generate a mapping file
     if trig_mapping_btn:
         msg, mapping, errors, rtn = dict_to_mapping_file(
@@ -644,6 +699,7 @@ def parse_file_to_data_dict(
                 errors,
                 rtn,
                 {"display": "none"},
+                bottom_buttons_mapping,
             )
         else:
             # If there was an error, return the error message
@@ -653,6 +709,7 @@ def parse_file_to_data_dict(
                 [],
                 rtn,
                 {"display": "none"},
+                bottom_buttons_data_dict,
             )
 
 
@@ -912,7 +969,7 @@ def update_table_style_and_validate(
     return style_data_conditional, tooltip_data
 
 
-# Downloading Data Dict/Mapping file as CSV
+# Downloading Data Dict as CSV
 @callback(
     Output("download-dict-csv", "data"),  # Download the CSV file
     Input("download-dict-button", "n_clicks"),  # Triggered by 'Download as CSV' button
@@ -925,7 +982,26 @@ def download_csv(n_clicks, data):
         df.drop(columns=["Row"], inplace=True)
         now = datetime.now()
         datetime_str = now.strftime("%Y-%m-%d_%H-%M-%S")
-        filename = f"autoparser_file_{datetime_str}.csv"
+        filename = f"data_dict_{datetime_str}.csv"
+        return dcc.send_data_frame(df.to_csv, filename, index=False)
+
+
+# Downloading Mapping file as CSV
+@callback(
+    Output("download-mapping-csv", "data"),  # Download the CSV file
+    Input(
+        "download-mapping-button", "n_clicks"
+    ),  # Triggered by 'Download as CSV' button
+    State("editable-ap-table", "data"),
+    prevent_initial_call=True,  # Only trigger when the button is clicked
+)
+def download_mapping_csv(n_clicks, data):
+    if n_clicks > 0 and data:
+        df = pd.DataFrame(data)
+        df.drop(columns=["Row"], inplace=True)
+        now = datetime.now()
+        datetime_str = now.strftime("%Y-%m-%d_%H-%M-%S")
+        filename = f"mapping_file_{datetime_str}.csv"
         return dcc.send_data_frame(df.to_csv, filename, index=False)
 
 
@@ -953,6 +1029,7 @@ def display_parser_dialog(n_clicks, data_file_name, schema_name):  # , table_nam
     State("parser-name", "value"),  # Parser name
     State("project", "data"),
     State("edited-ap-output-store", "data"),
+    prevent_initial_call=True,
 )
 def write_a_parser(submit_n_clicks, parser_name, project, datasets):
     if submit_n_clicks and project and datasets:
@@ -991,8 +1068,6 @@ def parse(df: pd.DataFrame) -> list[dict]:
 
 
 # TODO:
-# * Use arcmapper style of 'containers' to allow the bottom section/buttons to
-# change with the stage of transformation we're in
 
 # *on autoparser side: throw recognisable error if a source_field is not found in the
 # data (prob typed incorrectly by the user)
