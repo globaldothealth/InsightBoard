@@ -138,7 +138,7 @@ def layout():
                     ),
                     # Parse Button to start file parsing
                     dbc.Button(
-                        "Create Dictionary",
+                        children=["Create Dictionary"],
                         id="make-dict-button",
                         n_clicks=0,
                     ),
@@ -605,6 +605,28 @@ def ctx_trigger(ctx, event):
     State("llm-choice", "value"),
     State("generate-descriptions-with-llm", "value"),
     State("data-language", "value"),
+    running=[
+        (
+            Output("make-dict-button", "children"),
+            [dbc.Spinner(size="sm"), " Creating Dictionary..."],
+            "Create Dictionary",
+        ),
+        (
+            Output("make-dict-button", "disabled"),
+            True,
+            False,
+        ),
+        (
+            Output("mapping-button", "children"),
+            [dbc.Spinner(size="sm"), " Mapping dictionary to schema..."],
+            "Confirm and Continue",
+        ),
+        (
+            Output("mapping-button", "disabled"),
+            True,
+            False,
+        ),
+    ],
 )
 def parse_file_to_data_dict(
     parse_n_clicks,
@@ -1049,7 +1071,6 @@ def parse(df: pd.DataFrame) -> list[dict]:
 # TODO:
 # * Use arcmapper style of 'containers' to allow the bottom section/buttons to
 # change with the stage of transformation we're in
-# * get the 'loading' icon going
 
 # *on autoparser side: throw recognisable error if a source_field is not found in the
 # data (prob typed incorrectly by the user)
