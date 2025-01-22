@@ -354,18 +354,14 @@ def update_page_size(page_size):
     Output("editable-ap-table", "active_cell"),
     Output("data-dict-stats", "children"),
     Input("parser-id", "data"),
-    Input("generate-descriptions-with-llm", "value"),
     Input("editable-ap-table", "active_cell"),
-    State("project", "data"),
     # PL: the non-edited store is used here, and is the one that works.
     # But think it possibly should be the non-edited one.
     State("ap-output-store", "data"),  # Populate with table from edited-data store
 )
 def update_table(
     parser_id,
-    llm_descriptions,
     active_cell,
-    project,
     edited_datasets,
 ):
     # Callback is triggered before edited_datasets is populated on first run
@@ -565,7 +561,6 @@ def ctx_trigger(ctx, event):
     State("ap-upload-data", "contents"),
     State("ap-upload-data", "filename"),
     State("schema-dropdown", "value"),
-    State("edited-ap-output-store", "data"),
     State("api-key", "value"),
     State("llm-choice", "value"),
     State("generate-descriptions-with-llm", "value"),
@@ -590,7 +585,6 @@ def parse_file_to_data_dict(
     contents,
     filename,
     schema,
-    edited_data_store,
     api_key,
     llm_choice,
     llm_descriptions,
@@ -1058,7 +1052,7 @@ def parse(df: pd.DataFrame) -> list[dict]:
             file.parent.mkdir(parents=True, exist_ok=True)
             file.write_text(content)
 
-            return dbc.Alert("Parser generated.", color="success")
+            return dbc.Alert(f"Parser '{parser_name}.toml' generated.", color="success")
         except Exception as e:
             logging.error(f"Error writing the parser: {str(e)}")
             logging.error(traceback.format_exc())
