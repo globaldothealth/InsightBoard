@@ -1,5 +1,4 @@
 import logging
-import math
 import traceback
 from datetime import datetime
 from pathlib import Path
@@ -35,13 +34,10 @@ def layout():
             dcc.Store(id="ap-output-store"),  # autoparser output
             dcc.Store(id="edited-ap-output-store"),  # edited data dict
             dcc.Store(id="generate-descriptions-with-llm"),  # Setting: LLm descriptions
-            # dcc.Store(id="show-full-validation-log"),  # Setting: Show full log
-            # dcc.Store(id="update-existing-records"),  # Setting: Update records
             dcc.Store(id="unmapped-fields"),
             dcc.Store(id="edited-unmapped-fields", data=[]),
             # Page rendering
             html.H1("Create a new parser"),
-            # dcc.Location(id="url-refresh", refresh=True),
             html.Div(id="autoparser-messages"),
             html.Div(
                 [
@@ -128,8 +124,6 @@ def layout():
                         id="autoparser-settings",
                         options=[
                             {"label": "Generate descriptions with LLM", "value": 1},
-                            # {"label": "Show full validation log", "value": 2},
-                            # {"label": "Update existing records", "value": 3},
                         ],
                         value=[1],  # list of 'value's that are 'on' by default
                         inline=True,
@@ -146,21 +140,6 @@ def layout():
                 id="autoparser-file-settings",
                 style={"display": "block"},
             ),
-            #         html.Div(
-            #             [
-            #                 dbc.Button("Close File", id="close-button", n_clicks=0),
-            #                 # Dropdown for imported tables
-            #                 dcc.Dropdown(
-            #                     id="imported-tables-dropdown",
-            #                     options=[],
-            #                     placeholder="Select a table",
-            #                     clearable=False,
-            #                     style={"float": "right", "width": "50%"},
-            #                 ),
-            #             ],
-            #             id="close-settings",
-            #             style={"display": "none"},
-            #         ),
             # DataTable for editing
             dcc.Loading(
                 type="default",
@@ -281,18 +260,6 @@ def layout():
     )
 
 
-# # Force reload of the page
-# @callback(
-#     Output("url-refresh", "href"),  # Refresh the page
-#     Input("close-button", "n_clicks"),  # Triggered by 'Close File' button
-#     Input("project", "data"),  # Triggered by project selection in navbar
-# )
-# def refresh_url(n_clicks, project):
-#     if n_clicks:
-#         return "/upload"
-#     raise dash.exceptions.PreventUpdate
-
-
 # Update schema dropdown based on selected project
 @callback(
     Output("schema-dropdown", "options"),  # Update schema dropdown options
@@ -351,15 +318,6 @@ def update_api_key(value):
         autoParser.api_key = value
 
 
-# # Update state when settings are changed: Update Existing Records
-# @callback(
-#     Output("update-existing-records", "value"),  # Update the 'update records' setting
-#     Input("upload-settings", "value"),  # Triggered by settings switch changes
-# )
-# def update_update_existing_records(value):
-#     return 3 in value
-
-
 # Update page size of the DataTable based on dropdown selection
 @callback(
     Output("editable-ap-table", "page_size"),  # Update the DataTable page size
@@ -397,9 +355,6 @@ def update_table(
 
     ctx = dash.callback_context
     trig_active_cell = ctx_trigger(ctx, "editable-ap-table.active_cell")
-    # trig_remove_empty_ids = ctx_trigger(ctx, "remove-empty-ids-button.n_clicks")
-    # trig_remove_error_rows = ctx_trigger(ctx, "remove-error-rows-button.n_clicks")
-    # trig_restore_deleted_rows = ctx_trigger(ctx, "restore-deleted-rows-button.n_clicks")
 
     # The only active cell we want to respond to is the delete button
     if trig_active_cell and active_cell:
@@ -408,14 +363,9 @@ def update_table(
     data = datasets
 
     data_stats = f"Total fields: {len(data)}"
-    # projectObj = utils.get_project(project)
-    # primary_key = projectObj.database.get_primary_key(selected_table)
 
-    # # Convert any lists to strings for display
-    # data = clean_dataset(data, project, selected_table, lists_to_strings=True)
     keys = next(iter(data)).keys()
     columns = [{"name": col, "id": col, "editable": True} for col in keys]
-    # columns = utils.ensure_schema_ordering(columns, project, selected_table)
 
     # Move 'Row' column to the front
     columns = [
@@ -423,12 +373,6 @@ def update_table(
         *[col for col in columns if col["id"] not in ["Row"]],
     ]
 
-    # hidden_columns = []
-    # data_stats += f", Showing: {len(data)}"
-    # if deleted_rows:
-    #     data_stats += f", Deleted: {deleted_rows}"
-
-    # return columns, hidden_columns, data, active_cell, data_stats
     return columns, data, active_cell, data_stats
 
 
@@ -439,7 +383,6 @@ def update_table(
     Output("edited-unmapped-fields", "data"),  # Update the missing fields store
     Input("ap-output-store", "data"),  # Triggered by new autoparser data ...
     Input("editable-ap-table", "data"),  # ... or DataTable edits
-    State("project", "data"),
     State("edited-ap-output-store", "data"),  # PL: still right?
     State("unmapped-fields", "data"),
     State("edited-unmapped-fields", "data"),
@@ -447,7 +390,6 @@ def update_table(
 def update_edited_data(
     parsed_data,
     edited_table_data,
-    project,
     datasets,
     unmapped_fields,
     edited_unmapped_fields,
@@ -689,12 +631,9 @@ def parse_file_to_data_dict(
     # Generate a mapping file
     if trig_mapping_btn:
         msg, mapping, errors, rtn = dict_to_mapping_file(
-            project,
             edited_data_store,
             filename,
             schema,
-            api_key,
-            llm_choice,
             language,
         )
         if mapping:
@@ -716,18 +655,6 @@ def parse_file_to_data_dict(
                 {"display": "none"},
             )
 
-    # # Update the data (make the current 'edited' buffer the new 'parsed' buffer)
-    # if trig_update_btn:
-    #     return (
-    #         "Validation run.",
-    #         edited_data_store,  # move edited data into parsed data store
-    #         tables_list,  # pass-through
-    #         selected_table,  # pass-through
-    #         f"{project}-{selected_table}",
-    #         {"display": "none"},
-    #         {"display": "block"},
-    #     )
-
 
 # Utility function to read and parse a data file
 def parse_data_to_dict(
@@ -745,7 +672,6 @@ def parse_data_to_dict(
                 color="warning",
             ),
             None,
-            # [],
             "",
         )
 
@@ -757,8 +683,6 @@ def parse_data_to_dict(
         schema_file = projectObj.get_schema(table)
         schema_path = projectObj.get_schemas_folder()
 
-        # it's probaly this; once the 'autoparser' global class is created,
-        # even if the llm or api key is changed it will still be the same object.
         global autoParser
         if autoParser is None:
             autoParser = utils.get_autoparser(llm, key, schema_file, table, schema_path)
@@ -768,7 +692,6 @@ def parse_data_to_dict(
             return (
                 dbc.Alert(msg, color="warning"),
                 None,
-                # [],
                 "",
             )
 
@@ -788,7 +711,6 @@ def parse_data_to_dict(
             "Please check this carefully, and once you are satisfied click 'Confirm & Continue'.",  # noqa
             data_dict,
             schema,
-            # f"{project}-{schema['name']}",
         )
 
     except Exception as e:
@@ -798,15 +720,16 @@ def parse_data_to_dict(
                 color="danger",
             ),
             None,
-            # [],
             "",
         )
 
 
-def dict_to_mapping_file(project, contents, filename, schema, key, llm, language):
+def dict_to_mapping_file(
+    contents, filename: str, schema: str, language: str
+) -> tuple[str | dbc.Alert, list[dict] | None, list, str]:
     """
     Returns
-    message, dictionary, schema name, file name string
+    message, dictionary, missing fields, file name string
     """
 
     try:
@@ -829,7 +752,6 @@ def dict_to_mapping_file(project, contents, filename, schema, key, llm, language
             mapping,
             missing_fields,
             schema,
-            # f"{project}-{schema['name']}",
         )
 
     except Exception as e:
@@ -840,7 +762,6 @@ def dict_to_mapping_file(project, contents, filename, schema, key, llm, language
             ),
             None,
             [],
-            # [],
             "",
         )
 
@@ -884,28 +805,29 @@ def highlight_and_tooltip_changes(
     # Iterate over each row in the modified data
     try:
         # Ensure rows with errors are highlighted before placing cell-level highlights
-        for i, row in enumerate(data[start_idx:end_idx]):
-            idx = row["Row"] - 1
-            errors = missing_fields[idx]
-            if any(errors):
-                error_rows.append(idx + 1)
-        if error_rows:
-            style_data_conditional.append(
-                {
-                    "if": {
-                        "filter_query": " || ".join(
-                            [f"{{Row}} = {k}" for k in error_rows]
-                        ),
-                    },
-                    "backgroundColor": "#FFCCCC",
-                    "color": "black",
-                }
-            )
+        if missing_fields:
+            for i, row in enumerate(data[start_idx:end_idx]):
+                idx = row["Row"] - 1
+                errors = missing_fields[idx]
+                if any(errors):
+                    error_rows.append(idx + 1)
+            if error_rows:
+                style_data_conditional.append(
+                    {
+                        "if": {
+                            "filter_query": " || ".join(
+                                [f"{{Row}} = {k}" for k in error_rows]
+                            ),
+                        },
+                        "backgroundColor": "#FFCCCC",
+                        "color": "black",
+                    }
+                )
 
         for i, row in enumerate(data[start_idx:end_idx]):
             row_tooltip = {}  # Store tooltips for the row
             idx = row["Row"] - 1
-            errors = missing_fields[idx]
+            errors = missing_fields[idx] if missing_fields else []
             # Show validation errors per cell and show tooltip
             for error in errors:
                 if error["path"] in data_cols:
