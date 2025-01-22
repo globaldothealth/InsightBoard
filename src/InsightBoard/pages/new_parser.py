@@ -968,21 +968,21 @@ def update_table_style_and_validate(
     return style_data_conditional, tooltip_data
 
 
-# # Downloading DataTable as CSV
-# @callback(
-#     Output("download-csv", "data"),  # Download the CSV file
-#     Input("download-button", "n_clicks"),  # Triggered by 'Download as CSV' button
-#     State("editable-table", "data"),
-#     State("imported-tables-dropdown", "value"),
-#     prevent_initial_call=True,  # Only trigger when the button is clicked
-# )
-# def download_csv(n_clicks, data, table_name):
-#     if n_clicks > 0 and data:
-#         df = pd.DataFrame(data)
-#         now = datetime.now()
-#         datetime_str = now.strftime("%Y-%m-%d_%H-%M-%S")
-#         filename = f"import_{table_name}_{datetime_str}.csv"
-#         return dcc.send_data_frame(df.to_csv, filename, index=False)
+# Downloading Data Dict/Mapping file as CSV
+@callback(
+    Output("download-dict-csv", "data"),  # Download the CSV file
+    Input("download-dict-button", "n_clicks"),  # Triggered by 'Download as CSV' button
+    State("editable-ap-table", "data"),
+    prevent_initial_call=True,  # Only trigger when the button is clicked
+)
+def download_csv(n_clicks, data):
+    if n_clicks > 0 and data:
+        df = pd.DataFrame(data)
+        df.drop(columns=["Row"], inplace=True)
+        now = datetime.now()
+        datetime_str = now.strftime("%Y-%m-%d_%H-%M-%S")
+        filename = f"autoparser_file_{datetime_str}.csv"
+        return dcc.send_data_frame(df.to_csv, filename, index=False)
 
 
 # Display a confirmation dialog when the 'generate parser' button is clicked
@@ -1049,7 +1049,6 @@ def parse(df: pd.DataFrame) -> list[dict]:
 # TODO:
 # * Use arcmapper style of 'containers' to allow the bottom section/buttons to
 # change with the stage of transformation we're in
-# * enable the 'download as csv' buttons
 # * get the 'loading' icon going
 
 # *on autoparser side: throw recognisable error if a source_field is not found in the
