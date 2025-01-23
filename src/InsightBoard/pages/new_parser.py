@@ -2,6 +2,7 @@ import logging
 import traceback
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 import dash
 import dash_bootstrap_components as dbc
@@ -24,9 +25,10 @@ dash.register_page(__name__, path="/new_parser")
 projectObj = None
 autoParser = None
 
+# different bottom layouts
 bottom_buttons_data_dict = [
     dbc.Button(
-        "Confirm & continue",
+        "Create Mapping File",
         id="mapping-button",
         n_clicks=None,  # 0
         style={"marginRight": "5px"},
@@ -43,7 +45,7 @@ bottom_buttons_data_dict = [
 
 bottom_buttons_mapping = [
     dbc.Button(
-        "Confirm & continue",
+        "Create Mapping File",
         id="disabled-mapping-button",
         n_clicks=None,  # 0
         style={"marginRight": "5px"},
@@ -82,6 +84,7 @@ bottom_buttons_mapping = [
 ]
 
 
+# Page layout
 def layout():
     return html.Div(
         [
@@ -280,12 +283,14 @@ def layout():
     )
 
 
-# Update schema dropdown based on selected project
 @callback(
     Output("schema-dropdown", "options"),  # Update schema dropdown options
     Input("project", "data"),  # Triggered by project selection in navbar
 )
 def update_schema_dropdown(project):
+    """
+    Fills in the list of options for the schema dropdown based on the selected project.
+    """
     if project:
         global projectObj
         projectObj = utils.get_project(project)
@@ -294,7 +299,6 @@ def update_schema_dropdown(project):
     return []
 
 
-# Display selected data file to user
 @callback(
     Output("ap-upload-data-filename", "children"),  # Update the filename display
     Output("ap-upload-data", "style"),
@@ -302,6 +306,9 @@ def update_schema_dropdown(project):
     State("ap-upload-data", "style"),
 )
 def update_filename(filename, style):
+    """
+    Updates the data upload box to display the selected file name
+    """
     if filename:
         update_styles = {
             "borderStyle": "solid",
@@ -347,7 +354,6 @@ def update_page_size(page_size):
     return page_size
 
 
-# triggered when the active cell changes?
 @callback(
     Output("editable-ap-table", "columns"),  # Update DataTable
     Output("editable-ap-table", "data"),
@@ -364,6 +370,10 @@ def update_table(
     active_cell,
     edited_datasets,
 ):
+    """
+    Updates the data being displayed in the editable table.
+    Triggered by changes in the parser_id, or by the user selecting a cell.
+    """
     # Callback is triggered before edited_datasets is populated on first run
     datasets = edited_datasets
     if not datasets:
@@ -410,6 +420,12 @@ def update_edited_data(
     unmapped_fields,
     edited_unmapped_fields,
 ):
+    """
+    Updates the stored data and missing fields list with any changes made in the
+    DataTable, or by the table first being populated.
+    Triggered by new data from the autoparser (parse_file_to_data_dict or
+    map_data_dict_to_schema), or by changes in the DataTable.
+    """
     new_edited_data_store = parsed_data
     if not new_edited_data_store:
         raise dash.exceptions.PreventUpdate
@@ -590,7 +606,18 @@ def parse_file_to_data_dict(
     llm_descriptions,
     language,
 ):
-    # if not parse_n_clicks and not update_n_clicks:
+    """
+    Calls the autoparser 'create_dict' function when the 'Create Dictionary' button is
+    clicked.
+
+    Returns
+    ----------------
+    message: str|dbc.Alert
+    dictionary: list[dict]|None
+    parser_id: list[None]
+    autoparser dictionary settings style: dict[str]
+    bottom_controls: list
+    """
     if not parse_n_clicks:
         return (
             "",
@@ -654,7 +681,7 @@ def parse_file_to_data_dict(
         (
             Output("mapping-button", "children"),
             [dbc.Spinner(size="sm"), " Mapping dictionary to schema..."],
-            "Confirm and Continue",
+            "Create Mapping File",
         ),
         (
             Output("mapping-button", "disabled"),
@@ -709,11 +736,20 @@ def map_data_dict_to_schema(
 
 # Utility function to read and parse a data file
 def parse_data_to_dict(
-    project, contents, filename, schema, key, llm, llm_descriptions, language
+    project,
+    contents,
+    filename: str,
+    schema: str,
+    key: str,
+    llm: Literal["openai", "gemini"],
+    llm_descriptions: bool,
+    language: Literal["fr", "en"],
 ):
     """
+    Utility function to create, then call the autoParser class
+
     Returns
-    message, dictionary, schema name, file name string
+    message, dictionary, schema name
     """
 
     if not contents or not schema:
@@ -758,8 +794,11 @@ def parse_data_to_dict(
             row["Row"] = i + 1
 
         return (
-            f"Data dictionary for file '{filename}' created successfully.\n"
-            "Please check this carefully, and once you are satisfied click 'Confirm & Continue'.",  # noqa
+            dbc.Alert(
+                f"Data dictionary for file '{filename}' created successfully.\n"
+                "Please check this carefully, and once you are satisfied click 'Create Mapping File'.",  # noqa
+                color="success",
+            ),
             data_dict,
             schema,
         )
@@ -777,7 +816,7 @@ def parse_data_to_dict(
 
 def dict_to_mapping_file(
     contents, filename: str, schema: str, language: str
-) -> tuple[str | dbc.Alert, list[dict] | None, list, str]:
+) -> tuple[dbc.Alert, list[dict] | None, list, str]:
     """
     Returns
     message, dictionary, missing fields, file name string
@@ -798,8 +837,11 @@ def dict_to_mapping_file(
             row["Row"] = i + 1
 
         return (
-            f"Mapping for file '{filename}' created successfully.\n"
-            "Please check this carefully, and once you are satisfied define the parser name and click 'Generate Parser'.",  # noqa
+            dbc.Alert(
+                f"Mapping for file '{filename}' created successfully.\n"
+                "Please check this carefully, and once you are satisfied define the parser name and click 'Generate Parser'.",  # noqa
+                color="success",
+            ),
             mapping,
             missing_fields,
             schema,
@@ -824,7 +866,7 @@ def highlight_and_tooltip_changes(
     page_current,
     page_size,
     missing_fields,
-):
+) -> tuple[list[dict | None], list[dict | None]]:
     """Highlight missing fields and show tooltips."""
     if not page_size:
         return [], []
@@ -923,7 +965,6 @@ def highlight_and_tooltip_changes(
     except Exception as e:
         # Callback can sometimes be called on stale data causing key errors
         logging.error(f"Error in highlight_and_tooltip_changes: {str(e)}")
-        logging.error(f"missing fields: {missing_fields}")
         return [], []
 
     return style_data_conditional, tooltip_data
@@ -948,6 +989,12 @@ def update_table_style_and_validate(
     missing_fields,
     edited_missing_fields,
 ):
+    """
+    Updates the row highlighting and tooltips (text that shows when you hover) in the
+    editable table.
+    Triggered by changes in the table data, the page showing or the page size.
+    """
+
     if not data:
         return [], []
 
@@ -970,7 +1017,7 @@ def update_table_style_and_validate(
     State("editable-ap-table", "data"),
     prevent_initial_call=True,  # Only trigger when the button is clicked
 )
-def download_csv(n_clicks, data):
+def download_dict_csv(n_clicks, data):
     if n_clicks > 0 and data:
         df = pd.DataFrame(data)
         df.drop(columns=["Row"], inplace=True)
@@ -983,13 +1030,14 @@ def download_csv(n_clicks, data):
 # Downloading Mapping file as CSV
 @callback(
     Output("download-mapping-csv", "data"),  # Download the CSV file
-    Input(
-        "download-mapping-button", "n_clicks"
-    ),  # Triggered by 'Download as CSV' button
+    Input("download-mapping-button", "n_clicks"),
     State("editable-ap-table", "data"),
     prevent_initial_call=True,  # Only trigger when the button is clicked
 )
 def download_mapping_csv(n_clicks, data):
+    """
+    Download the mapping file as a csv if 'Download as CSV' button is clicked
+    """
     if n_clicks > 0 and data:
         df = pd.DataFrame(data)
         df.drop(columns=["Row"], inplace=True)
@@ -999,19 +1047,23 @@ def download_mapping_csv(n_clicks, data):
         return dcc.send_data_frame(df.to_csv, filename, index=False)
 
 
-# Display a confirmation dialog when the 'generate parser' button is clicked
 @callback(
     Output("confirm-parser-dialog", "displayed"),  # Show the dialog
     Output("confirm-parser-dialog", "message"),
     Input("make-parser-button", "n_clicks"),  # Triggered by 'Commit' button click
     State("ap-upload-data", "filename"),
     State("schema-dropdown", "value"),
+    State("parser-name", "value"),
 )
-def display_parser_dialog(n_clicks, data_file_name, schema_name):  # , table_names
+def display_parser_dialog(n_clicks, data_file_name, schema_name, parser_name):
+    """
+    Display a confirmation dialog when the 'generate parser' button is clicked
+    """
     if n_clicks > 0:
         return True, (
             "You are about to write a parser for the following data file and schema:\n"
-            f"Data: {data_file_name}\nSchema: {schema_name}\n\nWrite parser now?"
+            f"Data: {data_file_name}\nSchema: {schema_name}\n"
+            f"Parser Name: {parser_name}\n\nWrite parser now?"
         )
     return False, ""
 
@@ -1025,7 +1077,14 @@ def display_parser_dialog(n_clicks, data_file_name, schema_name):  # , table_nam
     State("edited-ap-output-store", "data"),
     prevent_initial_call=True,
 )
-def write_a_parser(submit_n_clicks, parser_name, project, datasets):
+def write_a_parser(
+    submit_n_clicks: int, parser_name: str, project: str, datasets: list[dict]
+) -> str | dbc.Alert:
+    """
+    Triggers autoparser to genenerate a parser based on the mapping file being shown
+    after the 'confirm' dialoge triggered by clicking the 'generate parser' button.
+    Outputs a confirmation message or error alert.
+    """
     if submit_n_clicks and project and datasets:
         try:
             parser_folder = projectObj.get_parsers_folder()
@@ -1062,6 +1121,7 @@ def parse(df: pd.DataFrame) -> list[dict]:
 
 
 # TODO:
+# * Add ability to upload your own data dictionary (use arcmapper as a guide)
 
 # *on autoparser side: throw recognisable error if a source_field is not found in the
 # data (prob typed incorrectly by the user)

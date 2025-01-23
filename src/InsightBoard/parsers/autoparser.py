@@ -1,14 +1,15 @@
 import base64
 import importlib.resources as resources
 import io
+import re
+import warnings
+from ast import literal_eval
 from pathlib import Path
+from typing import Literal
 
 import pandas as pd
 import tomli
 import tomli_w
-import warnings
-import re
-from ast import literal_eval
 
 try:
     import adtl.autoparser as autoparser
@@ -18,7 +19,12 @@ except ImportError:
 
 class AutoParser:
     def __init__(
-        self, model=None, api_key=None, schema=None, table_name=None, schema_path=None
+        self,
+        model: Literal["openai", "gemini"] | None = None,
+        api_key: str | None = None,
+        schema: str | None = None,  # this a path or the actual JSON file?
+        table_name=None,
+        schema_path=None,
     ):
         self.model = model
         self.api_key = api_key
@@ -27,11 +33,9 @@ class AutoParser:
         self.schema = schema
 
         if schema_path:
-            with (
-                resources.files("adtl.autoparser.config")
-                .joinpath("autoparser.toml")
-                .open("rb") as fp
-            ):
+            with resources.files("adtl.autoparser.config").joinpath(
+                "autoparser.toml"
+            ).open("rb") as fp:
                 config = tomli.load(fp)
             schema_loc = Path(schema_path, table_name)
             schema_loc = schema_loc.parent / (schema_loc.name + ".schema.json")
@@ -50,10 +54,9 @@ class AutoParser:
         # created attributes
         self.data_dict = None
         self.mapping_file = None
-        # don't need to save the parser, it'll get written out
 
     @property
-    def is_autoparser_ready(self):
+    def is_autoparser_ready(self) -> tuple[bool, str]:
         not_set = []
         if not self.model:
             not_set.append("model")
@@ -67,9 +70,14 @@ class AutoParser:
             f"AutoParser is not ready, please set {', '.join(not_set)}",
         )
 
-    def create_dict(self, filename, contents, llm_descriptions, language):
-
-        content_type, content_string = contents.split(",")
+    def create_dict(
+        self,
+        filename: str,
+        contents: base64,
+        llm_descriptions: bool,
+        language: Literal["fr", "en"],
+    ) -> pd.DataFrame:
+        _, content_string = contents.split(",")
         decoded = base64.b64decode(content_string)
         ext = filename.split(".")[-1].lower()
         if ext == "csv":
@@ -77,7 +85,10 @@ class AutoParser:
         elif ext == "xlsx":
             raw_df = pd.read_excel(io.BytesIO(decoded))
         else:
-            return "Unsupported file type.", None, [], "", ""
+            raise ValueError(
+                f"Unsupported file type: {ext}. Please provide data as either an Excel"
+                " file, or a csv",
+            )
 
         # currently config doesn't make any difference
         self.data_dict = autoparser.create_dict(raw_df, config=self.config)
@@ -94,7 +105,9 @@ class AutoParser:
 
         return self.data_dict
 
-    def create_mapping(self, data_dict, language):
+    def create_mapping(
+        self, data_dict: pd.DataFrame, language: Literal["fr", "en"]
+    ) -> tuple[pd.DataFrame, list]:
         # PL: 'Description' if no LLM used, 'source_description' if not... need to fix
         # inside adtl.autoparser
         descriptions = data_dict["source_description"]
@@ -145,7 +158,7 @@ class AutoParser:
                 return self.mapping, errors
         return self.mapping, []
 
-    def create_parser(self, mapping, parser_loc, name):
+    def create_parser(self, mapping: pd.DataFrame, parser_loc: str, name: str) -> bool:
         autoparser.create_parser(
             mapping,
             self.schema_path.parent,
