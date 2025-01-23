@@ -31,15 +31,6 @@ def adtl_check_parser():
         )
 
 
-# currently unused... should add that in somewhere.
-def adtl_check_autoparser():
-    if autoparser is None:
-        raise ImportError(
-            "autoparser is not installed. Please install it using `pip install "
-            '"adtl[autoparser]"`'
-        )
-
-
 def adtl(df: pd.DataFrame, specification: str, *cl_args) -> dict:
     """Helper function for adtl parser.
 

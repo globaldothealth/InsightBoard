@@ -26,6 +26,12 @@ class AutoParser:
         table_name=None,
         schema_path=None,
     ):
+        if autoparser is None:
+            raise ImportError(
+                "autoparser is not installed. Please install it using `pip install "
+                '"adtl[autoparser]"`'
+            )
+
         self.model = model
         self.api_key = api_key
 
@@ -159,11 +165,31 @@ class AutoParser:
         return self.mapping, []
 
     def create_parser(self, mapping: pd.DataFrame, parser_loc: str, name: str) -> bool:
+        # write TOML file
         autoparser.create_parser(
             mapping,
             self.schema_path.parent,
             str(Path(parser_loc, "adtl", f"{name}.toml")),
             config=self.config,
         )
+
+        # make associated python file for InsightBoard
+        content = f"""import pandas as pd
+from pathlib import Path
+from InsightBoard.parsers import parse_adtl
+
+SPECIFICATION_FILE = "adtl/{name}.toml"
+
+def parse(df: pd.DataFrame) -> list[dict]:
+    spec_file = Path(__file__).parent / SPECIFICATION_FILE
+    return parse_adtl(df, spec_file, ["linelist"])
+"""
+
+        file = Path(parser_loc, f"adtl-{name}.py")
+
+        # Create parent directories if they don't exist
+        file.parent.mkdir(parents=True, exist_ok=True)
+
+        file.write_text(content)
 
         return True

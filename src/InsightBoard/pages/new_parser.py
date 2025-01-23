@@ -1,7 +1,6 @@
 import logging
 import traceback
 from datetime import datetime
-from pathlib import Path
 from typing import Literal
 
 import dash
@@ -132,14 +131,17 @@ def layout():
         Select which language your data is in:
     """
                             ),
-                            dcc.RadioItems(
+                            dcc.Dropdown(
+                                id="data-language",
                                 options=[
                                     {"label": "English", "value": "en"},
                                     {"label": "French", "value": "fr"},
                                 ],
-                                value="fr",
-                                id="data-language",
-                                style={"marginTop": "10px", "marginBottom": "10px"},
+                                placeholder="Select a language",
+                                style={
+                                    "marginTop": "10px",
+                                    "marginBottom": "10px",
+                                },
                             ),
                         ],
                         width=6,
@@ -249,9 +251,7 @@ def layout():
                             {"label": "25", "value": 25},
                             {"label": "50", "value": 50},
                             {"label": "100", "value": 100},
-                            {"label": "250", "value": 250},
-                            {"label": "500", "value": 500},
-                            {"label": "1000", "value": 1000},
+                            {"label": "All", "value": 250},
                         ],
                         value=25,
                         clearable=False,
@@ -277,7 +277,6 @@ def layout():
             ),
             dcc.ConfirmDialog(id="confirm-parser-dialog", message=""),
             html.Hr(),
-            #         html.Div(id="output-container"),
         ],
         style={"width": "100%"},
     )
@@ -359,6 +358,11 @@ def update_page_size(page_size):
     Output("editable-ap-table", "data"),
     Output("editable-ap-table", "active_cell"),
     Output("data-dict-stats", "children"),
+    # in the original code, this is the table ID so if there are multiple data tables
+    # the dropdown allows the viewable data to change.
+    # However if I delete this line, the table does not update.
+    # It's inadvertently updating the table when the data updates after calling
+    # autoparser.
     Input("parser-id", "data"),
     Input("editable-ap-table", "active_cell"),
     # PL: the non-edited store is used here, and is the one that works.
@@ -375,8 +379,8 @@ def update_table(
     Triggered by changes in the parser_id, or by the user selecting a cell.
     """
     # Callback is triggered before edited_datasets is populated on first run
-    datasets = edited_datasets
-    if not datasets:
+    data = edited_datasets
+    if not data:
         raise dash.exceptions.PreventUpdate
 
     ctx = dash.callback_context
@@ -385,8 +389,6 @@ def update_table(
     # The only active cell we want to respond to is the delete button
     if trig_active_cell and active_cell:
         raise dash.exceptions.PreventUpdate
-
-    data = datasets
 
     data_stats = f"Total fields: {len(data)}"
 
@@ -402,8 +404,6 @@ def update_table(
     return columns, data, active_cell, data_stats
 
 
-# When edits are made in the DataTable, update the edited-data-store & missing fields
-# triggered by changing the page, but not by editing the table
 @callback(
     Output("edited-ap-output-store", "data"),  # Update the edited data store
     Output("edited-unmapped-fields", "data"),  # Update the missing fields store
@@ -451,117 +451,10 @@ def update_edited_data(
     return full_edited_data, missing_fields
 
 
-# # Utility function to convert text to HTML for display
-# def text_to_html(text: str) -> html.Div:
-#     return html.Div(
-#         [html.Pre(text, style={"white-space": "pre-wrap", "word-wrap": "break-word"})]
-#     )
-
-
-# # Display the validation error log
-# @callback(
-#     Output("output-container", "children"),  # Update the validation log display
-#     Input("validation-errors", "data"),  # Triggered by any change in errors ...
-#     Input("validation-warnings", "data"),  # ... or table view
-#     Input("imported-tables-dropdown", "options"),
-#     Input("imported-tables-dropdown", "value"),
-#     Input("only-show-validation-errors", "value"),
-#     Input("show-full-validation-log", "value"),
-#     Input("editable-table", "page_current"),
-#     Input("editable-table", "page_size"),
-#     Input("editable-table", "data"),
-#     State("parsed-data-store", "data"),
-#     State("project", "data"),
-# )
-# def validate_log(
-#     errors,
-#     warns,
-#     tables_list,
-#     current_table,
-#     only_show_validation_errors,
-#     show_full_validation_log,
-#     page_current,
-#     page_size,
-#     editable_data,
-#     parsed_dbs_dict,
-#     project,
-# ):
-#     if not errors and not warns:
-#         return html.P("No validation errors.")
-
-#     # Validate the data against the schema
-#     parsed_errors = [
-#         f"Row {idx + 1} - {errorlist_to_sentence(x)}" for idx, x in enumerate(errors)
-#     ]
-#     rows_with_errors = len([x for x in errors if x])
-#     comment = []
-#     start_idx = 0
-#     end_idx = -1
-#     if not show_full_validation_log:
-#         page_current = page_current or 0
-#         start_idx = page_current * page_size
-#         end_idx = (page_current + 1) * page_size
-#         if only_show_validation_errors:
-#             # Determine indices from visible data
-#             visible_data = editable_data[start_idx:end_idx]
-#             start_idx = visible_data[0]["Row"] - 1
-#             end_idx = visible_data[-1]["Row"]
-#         errors = errors[start_idx:end_idx]
-#         parsed_errors = parsed_errors[start_idx:end_idx]
-#         comment.extend(
-#             [
-#                 html.Br(),
-#                 html.I(
-#                     "Only showing errors visible in table - "
-#                     "Toggle 'Show full validation log' to view all",
-#                 ),
-#             ]
-#         )
-#     parsed_errors = [x for x, y in zip(parsed_errors, errors) if y]
-
-#     # If a strict schema exists, validate against that too
-#     parsed_warns = []
-#     if warns:
-#         parsed_warns = [
-#             f"Row {idx + 1} - {errorlist_to_sentence(x)}"
-#             for idx, x in enumerate(warns)
-#             if x
-#         ]
-
-#     # Construct validation messages
-#     if not rows_with_errors and not any(parsed_warns):
-#         return html.P("Validation passed successfully.")
-#     msg_errors = [
-#         html.H3("Validation errors:", style={"color": "red"}),
-#         html.P(
-#             [
-#                 f"Total rows with errors: {rows_with_errors}",
-#                 *comment,
-#             ],
-#             style={"color": "red"},
-#         ),
-#         html.P(
-#             text_to_html(error_report_message(parsed_errors)), style={"color": "red"}
-#         ),
-#     ]
-#     msg_warns = []
-#     if parsed_warns:
-#         msg_warns = [
-#             html.H3("Validation warnings:", style={"color": "orange"}),
-#             html.P(
-#                 text_to_html(error_report_message(parsed_warns)),
-#                 style={"color": "orange"},
-#             ),
-#         ]
-
-#     return html.Div([*msg_errors, *msg_warns])
-
-
 def ctx_trigger(ctx, event):
     return any(k["prop_id"] == event for k in ctx.triggered)
 
 
-# Parse the select data file when "Parse" button is pressed
 @callback(
     Output("autoparser-messages", "children", allow_duplicate=True),  # Output message
     Output(
@@ -1093,23 +986,6 @@ def write_a_parser(
             mapping.drop(columns=["Row"], inplace=True)
 
             autoParser.create_parser(mapping, parser_folder, name=parser_name)
-
-            # make asociated python file
-            content = f"""import pandas as pd
-from pathlib import Path
-from InsightBoard.parsers import parse_adtl
-
-SPECIFICATION_FILE = "adtl/{parser_name}.toml"
-
-def parse(df: pd.DataFrame) -> list[dict]:
-    spec_file = Path(__file__).parent / SPECIFICATION_FILE
-    return parse_adtl(df, spec_file, ["linelist"])
-"""
-
-            file = Path(parser_folder, f"adtl-{parser_name}.py")
-            # Create parent directories if they don't exist
-            file.parent.mkdir(parents=True, exist_ok=True)
-            file.write_text(content)
 
             return dbc.Alert(f"Parser '{parser_name}.toml' generated.", color="success")
         except Exception as e:
