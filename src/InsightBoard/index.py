@@ -1,19 +1,20 @@
 import sys
-import dash
-import dash_bootstrap_templates as dbt
-import dash_bootstrap_components as dbc
-
-from dash import dcc, html, callback, Input, Output
 from pathlib import Path
 
+import dash
+import dash_bootstrap_components as dbc
+import dash_bootstrap_templates as dbt
+from dash import callback
+from dash import dcc
+from dash import html
+from dash import Input
+from dash import Output
 from InsightBoard.app import app
-from InsightBoard.config import ConfigManager
-from InsightBoard.utils import (
-    get_projects_list,
-    get_default_project,
-    get_custom_assets_folder,
-)
 from InsightBoard.chatbot import initialize_chatbot
+from InsightBoard.config import ConfigManager
+from InsightBoard.utils import get_custom_assets_folder
+from InsightBoard.utils import get_default_project
+from InsightBoard.utils import get_projects_list
 
 # If running from PyInstaller, get the path to the temporary directory
 if hasattr(sys, "_MEIPASS"):
@@ -109,6 +110,7 @@ app.layout = dbc.Container(
         dbc.NavbarSimple(
             children=[
                 dbc.NavLink("Home", href="/"),
+                dbc.NavLink("New Dataset", href="/new_parser"),
                 dbc.NavLink("Upload", href="/upload"),
                 dbc.NavLink("Data", href="/data"),
                 dbc.NavLink("Reports", href="/reports"),

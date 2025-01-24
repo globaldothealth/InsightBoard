@@ -1,15 +1,16 @@
+import base64
 import io
 import json
-import base64
 import tomllib
-import tomli_w
-import pandas as pd
-
 from pathlib import Path
 
-from InsightBoard.database import Database, DatabaseBackend, BackupPolicy
-from InsightBoard.config import ConfigManager
+import pandas as pd
+import tomli_w
 from InsightBoard import utils
+from InsightBoard.config import ConfigManager
+from InsightBoard.database import BackupPolicy
+from InsightBoard.database import Database
+from InsightBoard.database import DatabaseBackend
 
 
 def get_projects_folder():
@@ -164,9 +165,11 @@ class Project:
         datasets = self.database.get_tables_list()
         # If the entries end in a suffix then it is (probably) a file list
         labels = [
-            d[: -len(self.database.suffix) - 1]
-            if d.endswith(self.database.suffix)
-            else d
+            (
+                d[: -len(self.database.suffix) - 1]
+                if d.endswith(self.database.suffix)
+                else d
+            )
             for d in datasets
         ]
         return [{"filename": f, "label": f} for f in labels]
@@ -180,6 +183,19 @@ class Project:
             for f in Path(self.get_parsers_folder()).iterdir()
             if f.is_file() and f.suffix == ".py"
         ]
+
+    def get_project_schemas(self):
+        schema_folder = Path(self.get_schemas_folder())
+        if not schema_folder.exists():
+            return []
+        schemas = [
+            s
+            for s in Path(self.get_schemas_folder()).iterdir()
+            if s.is_file() and s.suffix == ".json"
+        ]
+        # drop the schema used to validate the parser files (not for data)
+        schemas = [s for s in schemas if not s.name == "parser.schema.json"]
+        return [{"label": s.stem, "value": s.stem} for s in schemas]
 
     def get_datasets(self, datasets):
         project_datasets = self.get_project_datasets()
