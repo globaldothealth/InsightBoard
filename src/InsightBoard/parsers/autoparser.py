@@ -7,6 +7,7 @@ from ast import literal_eval
 from pathlib import Path
 from typing import Literal
 
+import numpy as np
 import pandas as pd
 import tomli
 import tomli_w
@@ -76,6 +77,20 @@ class AutoParser:
             f"AutoParser is not ready, please set {', '.join(not_set)}",
         )
 
+    def cleanup_table(self, data: list[dict]) -> pd.DataFrame:
+        """
+        Use on a dataframe coming from the editable table, to cleanup values before
+        passing to adtl
+        """
+
+        df = pd.DataFrame(data)
+        df.drop(columns=["Row"], inplace=True)
+
+        # any cells containing only empty strings are replaced with NaN
+        df = df.replace(r"^\s*$", np.nan, regex=True)
+
+        return df
+
     def create_dict(
         self,
         filename: str,
@@ -112,11 +127,13 @@ class AutoParser:
         return self.data_dict
 
     def create_mapping(
-        self, data_dict: pd.DataFrame, language: Literal["fr", "en"]
+        self, data_dict: list[dict], language: Literal["fr", "en"]
     ) -> tuple[pd.DataFrame, list]:
+        clean_dict = self.cleanup_table(data_dict)
+
         # PL: 'Description' if no LLM used, 'source_description' if not... need to fix
         # inside adtl.autoparser
-        descriptions = data_dict["source_description"]
+        descriptions = clean_dict["source_description"]
         if any(descriptions.isnull()):
             raise ValueError(
                 "The data dictionary is missing one or more field descriptions which "
@@ -125,7 +142,7 @@ class AutoParser:
 
         with warnings.catch_warnings(record=True) as w:
             self.mapping = autoparser.create_mapping(
-                data_dict,
+                clean_dict,
                 self.schema_path,
                 language,
                 self.api_key,
@@ -164,10 +181,15 @@ class AutoParser:
                 return self.mapping, errors
         return self.mapping, []
 
-    def create_parser(self, mapping: pd.DataFrame, parser_loc: str, name: str) -> bool:
+    def create_parser(self, mapping: list[dict], parser_loc: str, name: str) -> bool:
+        df = self.cleanup_table(mapping)
+
+        # remove empty target_field rows (removed by user)
+        clean_mapping = df.drop(df[df.target_field.isna()].index)
+
         # write TOML file
         autoparser.create_parser(
-            mapping,
+            clean_mapping,
             self.schema_path.parent,
             str(Path(parser_loc, "adtl", f"{name}.toml")),
             config=self.config,

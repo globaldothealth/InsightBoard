@@ -213,7 +213,19 @@ def layout():
                         editable=True,
                         hidden_columns=[],
                         column_selectable=None,
-                        style_data_conditional=[],
+                        style_data_conditional=[
+                            {  # Highlight the selected cell
+                                "if": {"state": "active"},
+                                "backgroundColor": "lightblue",
+                                "border": "1px solid blue",
+                                "color": "black",
+                            },
+                            {  # Mark the 'Row' column in light grey
+                                "if": {"column_id": "Row"},
+                                "backgroundColor": "#F0F0F0",
+                                "color": "#A0A0A0",
+                            },
+                        ],
                         css=[
                             {  # Hide the annoying `Toggle Columns` button
                                 "selector": ".show-hide",
@@ -385,7 +397,7 @@ def update_table(
     if not data:
         raise dash.exceptions.PreventUpdate
 
-    if data[0].keys() != autoparser_data[0].keys():
+    if autoparser_data and (data[0].keys() != autoparser_data[0].keys()):
         # on the second loop, force the data to be the mapping file
         data = autoparser_data
 
@@ -670,8 +682,7 @@ def parse_data_to_dict(
         schema_path = projectObj.get_schemas_folder()
 
         global autoParser
-        if autoParser is None:
-            autoParser = utils.get_autoparser(llm, key, schema_file, table, schema_path)
+        autoParser = utils.get_autoparser(llm, key, schema_file, table, schema_path)
 
         ready, msg = autoParser.is_autoparser_ready
         if not ready:
@@ -722,10 +733,7 @@ def dict_to_mapping_file(
     """
 
     try:
-        dd = pd.DataFrame(contents)
-        dd.drop(columns=["Row"], inplace=True)
-
-        mapping_frame, missing_fields = autoParser.create_mapping(dd, language)
+        mapping_frame, missing_fields = autoParser.create_mapping(contents, language)
         mapping_frame.reset_index(inplace=True)
 
         # Dash cannot store DataFrames directly, so convert them to dictionaries
@@ -767,7 +775,7 @@ def highlight_and_tooltip_changes(
 ) -> tuple[list[dict | None], list[dict | None]]:
     """Highlight missing fields and show tooltips."""
     if not page_size:
-        return [], []
+        return []
     page_current = page_current or 0
 
     start_idx = page_current * page_size
@@ -954,10 +962,7 @@ def write_a_parser(
         try:
             parser_folder = projectObj.get_parsers_folder()
 
-            mapping = pd.DataFrame(datasets)
-            mapping.drop(columns=["Row"], inplace=True)
-
-            autoParser.create_parser(mapping, parser_folder, name=parser_name)
+            autoParser.create_parser(datasets, parser_folder, name=parser_name)
 
             return dbc.Alert(f"Parser '{parser_name}.toml' generated.", color="success")
         except Exception as e:
