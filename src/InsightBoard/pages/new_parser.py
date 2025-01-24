@@ -365,23 +365,29 @@ def update_page_size(page_size):
     # autoparser.
     Input("parser-id", "data"),
     Input("editable-ap-table", "active_cell"),
-    # PL: the non-edited store is used here, and is the one that works.
-    # But think it possibly should be the non-edited one.
-    State("ap-output-store", "data"),  # Populate with table from edited-data store
+    State("ap-output-store", "data"),
+    State("edited-ap-output-store", "data"),
 )
 def update_table(
     parser_id,
     active_cell,
-    edited_datasets,
+    autoparser_data,
+    edited_ap_data,
 ):
     """
     Updates the data being displayed in the editable table.
     Triggered by changes in the parser_id, or by the user selecting a cell.
     """
-    # Callback is triggered before edited_datasets is populated on first run
-    data = edited_datasets
+    data = edited_ap_data
+    if not data:
+        # Callback is triggered before edited_datasets is populated on first run
+        data = autoparser_data
     if not data:
         raise dash.exceptions.PreventUpdate
+
+    if data[0].keys() != autoparser_data[0].keys():
+        # on the second loop, force the data to be the mapping file
+        data = autoparser_data
 
     ctx = dash.callback_context
     trig_active_cell = ctx_trigger(ctx, "editable-ap-table.active_cell")
@@ -754,7 +760,6 @@ def dict_to_mapping_file(
 
 # Apply table highlights and tooltips to show changes
 def highlight_and_tooltip_changes(
-    original_data,
     data,
     page_current,
     page_size,
@@ -782,7 +787,6 @@ def highlight_and_tooltip_changes(
             "color": "#A0A0A0",
         },
     ]
-    tooltip_data = [{} for _ in range(start_idx)]
     keys = next(iter(data)).keys()
     data_cols = [k for k in keys if k not in ["Row"]]
 
@@ -811,10 +815,9 @@ def highlight_and_tooltip_changes(
                 )
 
         for i, row in enumerate(data[start_idx:end_idx]):
-            row_tooltip = {}  # Store tooltips for the row
             idx = row["Row"] - 1
             errors = missing_fields[idx] if missing_fields else []
-            # Show validation errors per cell and show tooltip
+            # Show validation errors per cell
             for error in errors:
                 if error["path"] in data_cols:
                     if len(style_data_conditional) <= MAX_CONDITIONAL_FORMATTING:
@@ -827,50 +830,21 @@ def highlight_and_tooltip_changes(
                                 "border": "2px solid red",
                             }
                         )
-                    row_tooltip[error["path"]] = {
-                        "value": error["message"],
-                        "type": "text",
-                    }
-            else:
-                # Then, if the cell values differ, highlight and add a tooltip
-                for column in data_cols:
-                    original_value = original_data[idx].get(column, None)
-                    modified_value = row.get(column, None)
-                    if str(modified_value) != str(original_value):
-                        if len(style_data_conditional) <= MAX_CONDITIONAL_FORMATTING:
-                            style_data_conditional.append(
-                                {
-                                    "if": {
-                                        "filter_query": f"{{Row}} = {idx + 1}",
-                                        "column_id": column,
-                                    },
-                                    "backgroundColor": "#FFDDC1",
-                                    "color": "black",
-                                }
-                            )
-                        # Show original content as a tooltip
-                        row_tooltip[column] = {
-                            "value": f'Original: "{original_value}"',
-                            "type": "text",
-                        }
-            tooltip_data.append(row_tooltip)
 
     except Exception as e:
         # Callback can sometimes be called on stale data causing key errors
         logging.error(f"Error in highlight_and_tooltip_changes: {str(e)}")
-        return [], []
+        return []
 
-    return style_data_conditional, tooltip_data
+    return style_data_conditional
 
 
 # Update the table style and tooltips based on missing fields
 @callback(
     Output("editable-ap-table", "style_data_conditional"),  # Update the table style ...
-    Output("editable-ap-table", "tooltip_data"),  # ... and tooltips
     Input("editable-ap-table", "data"),  # Triggered by any change in the table data ...
     Input("editable-ap-table", "page_current"),
     Input("editable-ap-table", "page_size"),
-    State("ap-output-store", "data"),
     State("unmapped-fields", "data"),
     State("edited-unmapped-fields", "data"),
 )
@@ -878,7 +852,6 @@ def update_table_style_and_validate(
     data,
     page_current,
     page_size,
-    original_data,
     missing_fields,
     edited_missing_fields,
 ):
@@ -889,18 +862,17 @@ def update_table_style_and_validate(
     """
 
     if not data:
-        return [], []
+        return []
 
     # Highlight changes and create tooltips showing original data
-    style_data_conditional, tooltip_data = highlight_and_tooltip_changes(
-        original_data,
+    style_data_conditional = highlight_and_tooltip_changes(
         data,
         page_current,
         page_size,
         edited_missing_fields or missing_fields,
     )
 
-    return style_data_conditional, tooltip_data
+    return style_data_conditional
 
 
 # Downloading Data Dict as CSV
