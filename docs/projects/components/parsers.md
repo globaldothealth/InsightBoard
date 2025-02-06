@@ -80,7 +80,7 @@ An example of a specification file is shown below, where full details of the `AD
   [linelist.country]
     field = "DateOfEvent"
     country = "place"
-    
+
     [linelist.country.values]
       "US" = "United States"
       "UK" = "United Kingdom"
@@ -99,3 +99,9 @@ def parse(data: pd.DataFrame) -> list[dict]:
 ```
 
 This will parse the data using the `ADTL` specification file located in `adtl/specification.toml` (path relative to the parser file) and return the parsed data as a list of dictionaries.
+
+### Writing new ADTL parsers
+
+InsightBoard provides an interface to ADTL's [`autoparser`](https://adtl.readthedocs.io/en/latest/autoparser/index.html) functionality, which uses LLMs to aid the creation of new parsers in a no-code interface.
+
+For instructions on how to use this interface, see the [Usage](../../usage/index.md) page.
