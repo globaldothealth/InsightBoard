@@ -131,9 +131,7 @@ class AutoParser:
     ) -> tuple[pd.DataFrame, list]:
         clean_dict = self.cleanup_table(data_dict)
 
-        # PL: 'Description' if no LLM used, 'source_description' if not... need to fix
-        # inside adtl.autoparser
-        descriptions = clean_dict["source_description"]
+        descriptions = clean_dict["Description"]  # PL: pull this from the config file?
         if any(descriptions.isnull()):
             raise ValueError(
                 "The data dictionary is missing one or more field descriptions which "

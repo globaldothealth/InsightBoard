@@ -5,6 +5,7 @@ InsightBoard is a powerful tool for ingesting and reporting on data from multipl
 ## Key Features
 
 - Data Ingestion: Import data from multiple sources using custom parsers.
+- Parser Generation: Semi-automated generation of new custom parsers.
 - Schema Normalization: Homogenize incoming data to a target schema.
 - Centralized Database: Store all ingested data in a central repository for easy access and analysis.
 - Custom Reporting: Create personalized reports with filters, aggregations, and visual representations of the data.
