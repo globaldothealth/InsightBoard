@@ -88,9 +88,9 @@ def parse_adtl(df: pd.DataFrame, spec_file, table_names) -> list[dict]:
 
 autoparser_model_providers = {
     # Google ( models which accept a response schema)
-    "gemini-1.5-flash": "google",
-    "gemini-1.5-pro": "google",
-    "gemini-2.0-flash": "google",
+    "gemini-1.5-flash": "gemini",
+    "gemini-1.5-pro": "gemini",
+    "gemini-2.0-flash": "gemini",
     # OpenAI (models which use Structured Outputs)
     "gpt-4o-mini": "openai",
     "gpt-4o": "openai",
