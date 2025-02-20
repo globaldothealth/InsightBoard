@@ -1,13 +1,18 @@
 import dash
 import dash_bootstrap_components as dbc
-
-from dash import html, dcc, callback, Input, Output, State
-
 import InsightBoard.utils as utils
-from InsightBoard.config import ConfigManager
-from InsightBoard.chatbot import is_chatbot_enabled
-from InsightBoard.database import DatabaseBackend, BackupPolicy
+from dash import callback
+from dash import dcc
+from dash import html
+from dash import Input
+from dash import Output
+from dash import State
 from InsightBoard.chatbot import chatbot_model_providers as chatbot_provider
+from InsightBoard.chatbot import is_chatbot_enabled
+from InsightBoard.config import ConfigManager
+from InsightBoard.database import BackupPolicy
+from InsightBoard.database import DatabaseBackend
+from InsightBoard.parsers import autoparser_model_providers as autoparser_provider
 
 # Register the page
 dash.register_page(__name__, path="/settings")
@@ -45,6 +50,12 @@ def layout():
                                 label="Project",
                                 children=[
                                     dbc.Card(dbc.CardBody(project_settings(config)))
+                                ],
+                            ),
+                            dcc.Tab(
+                                label="AutoParser",
+                                children=[
+                                    dbc.Card(dbc.CardBody(autoparser_settings(config)))
                                 ],
                             ),
                         ],
@@ -131,6 +142,42 @@ def chatbot_settings(config):
             style={"font-weight": "lighter", "opacity": "0.7", "fontSize": "0.8em"},
         ),
         dbc.Button("Show API key", id="show-api-key", color="primary"),
+    ]
+
+
+def autoparser_settings(config):
+    ap_model_list = [{"label": k, "value": k} for k in sorted(autoparser_provider)]
+    ap_model = config.get("chatbot.model", "gpt-4o-mini")
+    ap_api_key = config.get("chatbot.api_key", "")
+    return [
+        html.H6("Model"),
+        dbc.Col(
+            dcc.Dropdown(
+                id="autoparser-model",
+                options=ap_model_list,
+                value=ap_model,
+                style={"width": "100%"},
+            ),
+            width=12,
+        ),
+        html.P(
+            "This settings is read first from the InsightBoard configuration, "
+            "then environment variable AUTOPARSER_MODEL",
+            style={"font-weight": "lighter", "opacity": "0.7", "fontSize": "0.8em"},
+        ),
+        html.H6("API key"),
+        dbc.Input(
+            id="autoparser-api-key",
+            type="password",
+            value=ap_api_key,
+            style={"width": "100%"},
+        ),
+        html.P(
+            "This settings is read first from the InsightBoard configuration, "
+            "then environment variable AUTOPARSER_API_KEY",
+            style={"font-weight": "lighter", "opacity": "0.7", "fontSize": "0.8em"},
+        ),
+        dbc.Button("Show API key", id="show-ap-api-key", color="primary"),
     ]
 
 
@@ -291,6 +338,43 @@ def update_chatbot_api_key(api_key, project):
     State("chatbot-api-key", "type"),
 )
 def show_api_key(n_clicks, input_type):
+    if n_clicks:
+        return (
+            ("text", "Hide API key")
+            if input_type == "password"
+            else ("password", "Show API key")
+        )
+    raise dash.exceptions.PreventUpdate
+
+
+@callback(
+    Input("autoparser-model", "value"),
+    State("project", "data"),
+)
+def update_autoparser_model(model, project):
+    if model not in autoparser_provider:
+        raise ValueError(f"Unable to determine model provider for model: {model}")
+    config = ConfigManager()
+    config.set("autoparser.model", model)
+    config.set("autoparser.provider", autoparser_provider[model])
+
+
+@callback(
+    Input("autoparser-api-key", "value"),
+    State("project", "data"),
+)
+def update_autoparser_api_key(api_key, project):
+    config = ConfigManager()
+    config.set("autoparser.api_key", api_key)
+
+
+@callback(
+    Output("autoparser-api-key", "type"),
+    Output("show-ap-api-key", "children"),
+    Input("show-ap-api-key", "n_clicks"),
+    State("autoparser-api-key", "type"),
+)
+def show_ap_api_key(n_clicks, input_type):
     if n_clicks:
         return (
             ("text", "Hide API key")

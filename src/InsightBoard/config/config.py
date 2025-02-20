@@ -1,10 +1,10 @@
-import os
-import tomllib
-import tomli_w
 import logging
+import os
 import platform
-
+import tomllib
 from pathlib import Path
+
+import tomli_w
 
 
 class ConfigManager:
@@ -30,6 +30,10 @@ class ConfigManager:
                 "model": os.environ.get("CHATBOT_MODEL", None),
                 "api_key": os.environ.get("CHATBOT_API_KEY", None),
             },
+            "autoparser": {
+                "model": os.environ.get("AUTOPARSER_MODEL", None),
+                "api_key": os.environ.get("AUTOPARSER_API_KEY", None),
+            },
         }
 
         # Ensure the config file exists and load the config
@@ -43,7 +47,9 @@ class ConfigManager:
             return Path.home() / ".config"
 
     def ensure_config_exists(self):
-        """Check if the config file exists, and create it with default values if it doesn't."""
+        """
+        Check if the config file exists, and create it with default values if it doesn't
+        """
         if not self.config_file.exists():
             # Create the directory if it doesn't exist
             self.config_dir.mkdir(parents=True, exist_ok=True)
@@ -68,7 +74,10 @@ class ConfigManager:
         return {}
 
     def merge_configs(self, loaded_config, default_config):
-        """Recursively merge default and loaded configuration, keeping defaults for missing keys."""
+        """
+        Recursively merge default and loaded configuration,
+        keeping defaults for missing keys.
+        """
         for key, value in default_config.items():
             if isinstance(value, dict) and key in loaded_config:
                 # If the value is a dictionary, recursively merge

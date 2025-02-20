@@ -104,26 +104,10 @@ def layout():
                         [
                             # Choose LLM
                             html.H6(
-                                children="""
-        Choose which LLM to use for generating your parser, and provide a corresponding API key:
-    """  # noqa
-                            ),
-                            dcc.RadioItems(
-                                options=[
-                                    {"label": "gpt-4o-mini", "value": "openai"},
-                                    {"label": "gemini-1.5-flash", "value": "gemini"},
-                                ],
-                                value="openai",
-                                id="llm-choice",
-                                style={"marginTop": "10px", "marginBottom": "10px"},
-                            ),
-                            # API key input
-                            dcc.Input(
-                                id="api-key",
-                                type="password",
-                                placeholder="API Key",
-                                value=None,
-                                style={"marginTop": "5px", "marginBottom": "10px"},
+                                children=dbc.Alert(
+                                    "An LLM is required to use this functionality.\nPlease ensure a model selection and API key have been provided in the settings.",  # noqa
+                                    color="info",
+                                ),
                             ),
                             # Set data language
                             html.H6(
@@ -344,18 +328,6 @@ def update_llm_descriptions(value):
     return 1 in value
 
 
-@callback(Input("llm-choice", "value"))
-def update_llm_choice(value):
-    if autoParser is not None:
-        autoParser.model = value
-
-
-@callback(Input("api-key", "value"))
-def update_api_key(value):
-    if autoParser is not None:
-        autoParser.api_key = value
-
-
 # Update page size of the DataTable based on dropdown selection
 @callback(
     Output("editable-ap-table", "page_size"),  # Update the DataTable page size
@@ -488,8 +460,6 @@ def ctx_trigger(ctx, event):
     State("ap-upload-data", "contents"),
     State("ap-upload-data", "filename"),
     State("schema-dropdown", "value"),
-    State("api-key", "value"),
-    State("llm-choice", "value"),
     State("generate-descriptions-with-llm", "value"),
     State("data-language", "value"),
     running=[
@@ -512,8 +482,6 @@ def parse_file_to_data_dict(
     contents,
     filename,
     schema,
-    api_key,
-    llm_choice,
     llm_descriptions,
     language,
 ):
@@ -546,8 +514,6 @@ def parse_file_to_data_dict(
             contents,
             filename,
             schema,
-            api_key,
-            llm_choice,
             llm_descriptions,
             language,
         )
@@ -651,8 +617,6 @@ def parse_data_to_dict(
     contents,
     filename: str,
     schema: str,
-    key: str,
-    llm: Literal["openai", "gemini"],
     llm_descriptions: bool,
     language: Literal["fr", "en"],
 ):
@@ -682,7 +646,7 @@ def parse_data_to_dict(
         schema_path = projectObj.get_schemas_folder()
 
         global autoParser
-        autoParser = utils.get_autoparser(llm, key, schema_file, table, schema_path)
+        autoParser = utils.get_autoparser(schema_file, table, schema_path)
 
         ready, msg = autoParser.is_autoparser_ready
         if not ready:

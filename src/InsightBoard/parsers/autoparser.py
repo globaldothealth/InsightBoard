@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import tomli
 import tomli_w
+from InsightBoard.config import ConfigManager
 
 try:
     import adtl.autoparser as autoparser
@@ -21,8 +22,6 @@ except ImportError:
 class AutoParser:
     def __init__(
         self,
-        model: Literal["openai", "gemini"] | None = None,
-        api_key: str | None = None,
         schema: str | None = None,  # this a path or the actual JSON file?
         table_name=None,
         schema_path=None,
@@ -33,8 +32,10 @@ class AutoParser:
                 '"adtl[autoparser]"`'
             )
 
-        self.model = model
-        self.api_key = api_key
+        config = ConfigManager()
+        self.model = config.get("autoparser.model", default=None)
+        self.provider = config.get("autoparser.provider", default=None)
+        self.api_key = config.get("autoparser.api_key", default=None)
 
         # find appropriate way to get the config file & schema
         self.schema = schema
@@ -65,8 +66,8 @@ class AutoParser:
     @property
     def is_autoparser_ready(self) -> tuple[bool, str]:
         not_set = []
-        if not self.model:
-            not_set.append("model")
+        if not self.provider:
+            not_set.append("provider")
         if not self.api_key:
             not_set.append("api key")
         if not self.schema:
@@ -120,7 +121,7 @@ class AutoParser:
                 self.data_dict,
                 language,
                 key=self.api_key,
-                llm=self.model,
+                llm=self.provider,
                 config=self.config,
             )
 
@@ -144,7 +145,7 @@ class AutoParser:
                 self.schema_path,
                 language,
                 self.api_key,
-                llm=self.model,
+                llm=self.provider,
                 config=self.config,
                 save=False,
             )
