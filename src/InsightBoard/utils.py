@@ -88,5 +88,5 @@ def check_module(module_name):
         return False
 
 
-def get_autoparser(model, api_key, schema, table, schema_path):
-    return AutoParser(model, api_key, schema, table, schema_path)
+def get_autoparser(schema, table, schema_path):
+    return AutoParser(schema, table, schema_path)

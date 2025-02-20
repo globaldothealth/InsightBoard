@@ -84,3 +84,16 @@ def parse_adtl(df: pd.DataFrame, spec_file, table_names) -> list[dict]:
         }
         for table_name, df in zip(table_names, dfs)
     ]
+
+
+autoparser_model_providers = {
+    # Google ( models which accept a response schema)
+    "gemini-1.5-flash": "gemini",
+    "gemini-1.5-pro": "gemini",
+    "gemini-2.0-flash": "gemini",
+    # OpenAI (models which use Structured Outputs)
+    "gpt-4o-mini": "openai",
+    "gpt-4o": "openai",
+    "o1": "openai",
+    "o3-mini": "openai",
+}
